@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/presentation/components/ui/button";
@@ -24,6 +24,12 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const { data: events, isLoading: loadingEvents } = trpc.event.list.useQuery();
+
+  useEffect(() => {
+    if (!loadingEvents && events && events.length === 0) {
+      router.replace("/setup");
+    }
+  }, [loadingEvents, events, router]);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: (data) => {
