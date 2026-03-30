@@ -15,6 +15,7 @@ import { Badge } from "@/presentation/components/ui/badge";
 import { AdminOverviewTab } from "./components/AdminOverviewTab";
 import { AdminCategoriesTab } from "./components/AdminCategoriesTab";
 import { AdminTeamsTab } from "./components/AdminTeamsTab";
+import { AdminScoringTab } from "./components/AdminScoringTab";
 import { formatDate } from "@/lib/utils";
 
 interface AdminDashboardClientProps {
@@ -23,7 +24,9 @@ interface AdminDashboardClientProps {
 
 export default function AdminDashboardClient({ eventId }: AdminDashboardClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories" | "scoring">(
+    "overview",
+  );
   const [showCreateEventForm, setShowCreateEventForm] = useState(false);
   const [createEventError, setCreateEventError] = useState("");
   const [createEventForm, setCreateEventForm] = useState({
@@ -213,7 +216,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
 
         {/* Navigation tabs */}
         <div className="flex gap-2 mb-6 border-b">
-          {(["overview", "teams", "categories"] as const).map((tab) => (
+          {(["overview", "teams", "categories", "scoring"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -223,7 +226,13 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              {tab === "overview" ? "Visão Geral" : tab === "teams" ? "Equipes" : "Categorias"}
+              {tab === "overview"
+                ? "Visão Geral"
+                : tab === "teams"
+                  ? "Equipes"
+                  : tab === "categories"
+                    ? "Categorias"
+                    : "Pontuação"}
             </button>
           ))}
         </div>
@@ -241,6 +250,8 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
         {activeTab === "teams" && (
           <AdminTeamsTab eventId={eventId} categories={visibleCategories} />
         )}
+
+        {activeTab === "scoring" && <AdminScoringTab categories={visibleCategories} />}
       </main>
     </div>
   );
