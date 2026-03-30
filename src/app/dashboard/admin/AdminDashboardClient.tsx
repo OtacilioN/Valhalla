@@ -12,14 +12,9 @@ import {
   CardTitle,
 } from "@/presentation/components/ui/card";
 import { Badge } from "@/presentation/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/presentation/components/ui/table";
+import { AdminOverviewTab } from "./components/AdminOverviewTab";
+import { AdminCategoriesTab } from "./components/AdminCategoriesTab";
+import { AdminTeamsTab } from "./components/AdminTeamsTab";
 import { formatDate } from "@/lib/utils";
 
 interface AdminDashboardClientProps {
@@ -29,11 +24,61 @@ interface AdminDashboardClientProps {
 export default function AdminDashboardClient({ eventId }: AdminDashboardClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories">("overview");
+  const [showCreateEventForm, setShowCreateEventForm] = useState(false);
+  const [createEventError, setCreateEventError] = useState("");
+  const [createEventForm, setCreateEventForm] = useState({
+    name: "",
+    adminPassword: "",
+    refereePassword: "",
+  });
 
   const { data: event, isLoading } = trpc.event.getById.useQuery(eventId);
+  const { data: categories } = trpc.category.listByEvent.useQuery(eventId);
+  const visibleCategories = categories ?? event?.categories ?? [];
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => router.push("/login"),
   });
+  const createEventMutation = trpc.event.create.useMutation({
+    onSuccess: () => {
+      setShowCreateEventForm(false);
+      setCreateEventError("");
+      setCreateEventForm({ name: "", adminPassword: "", refereePassword: "" });
+      router.push("/login");
+    },
+    onError: (err) => {
+      setCreateEventError(err.message || "Erro ao criar novo evento.");
+    },
+  });
+
+  function handleCreateEventChange(field: keyof typeof createEventForm, value: string) {
+    setCreateEventForm((prev) => ({ ...prev, [field]: value }));
+    setCreateEventError("");
+  }
+
+  function handleCreateEventSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateEventError("");
+
+    if (!createEventForm.name.trim()) {
+      setCreateEventError("Nome do evento é obrigatório.");
+      return;
+    }
+    if (createEventForm.adminPassword.length < 4) {
+      setCreateEventError("Senha do admin deve ter pelo menos 4 caracteres.");
+      return;
+    }
+    if (createEventForm.refereePassword.length < 4) {
+      setCreateEventError("Senha do árbitro deve ter pelo menos 4 caracteres.");
+      return;
+    }
+
+    createEventMutation.mutate({
+      name: createEventForm.name,
+      startDate: new Date().toISOString(),
+      adminPassword: createEventForm.adminPassword,
+      refereePassword: createEventForm.refereePassword,
+    });
+  }
 
   if (isLoading) {
     return (
@@ -57,11 +102,18 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
       <header className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-bold text-indigo-700">⚔️ Valhalla</span>
+            <span className="text-2xl font-bold text-indigo-700">Valhalla</span>
             <Badge variant="secondary">Admin</Badge>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">{event.name}</span>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowCreateEventForm((prev) => !prev)}
+            >
+              Criar novo evento
+            </Button>
             <Button variant="outline" size="sm" onClick={() => logoutMutation.mutate()}>
               Sair
             </Button>
@@ -70,6 +122,84 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {showCreateEventForm && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Novo Evento</CardTitle>
+              <CardDescription>
+                Crie um novo evento para disponibilizá-lo na tela de login.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateEventSubmit} className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <label htmlFor="newEventName" className="text-sm font-medium">
+                    Nome do Evento *
+                  </label>
+                  <input
+                    id="newEventName"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    placeholder="Ex: OBR Regional São Paulo 2027"
+                    value={createEventForm.name}
+                    onChange={(e) => handleCreateEventChange("name", e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="newEventAdminPassword" className="text-sm font-medium">
+                    Senha do Admin *
+                  </label>
+                  <input
+                    id="newEventAdminPassword"
+                    type="password"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    placeholder="Mínimo 4 caracteres"
+                    value={createEventForm.adminPassword}
+                    onChange={(e) => handleCreateEventChange("adminPassword", e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="newEventRefereePassword" className="text-sm font-medium">
+                    Senha dos Árbitros *
+                  </label>
+                  <input
+                    id="newEventRefereePassword"
+                    type="password"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    placeholder="Mínimo 4 caracteres"
+                    value={createEventForm.refereePassword}
+                    onChange={(e) => handleCreateEventChange("refereePassword", e.target.value)}
+                    required
+                  />
+                </div>
+
+                {createEventError && (
+                  <p className="text-sm text-destructive md:col-span-2">{createEventError}</p>
+                )}
+
+                <div className="md:col-span-2 flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateEventForm(false);
+                      setCreateEventError("");
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createEventMutation.isPending}>
+                    {createEventMutation.isPending ? "Criando..." : "Criar evento"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Event summary */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800">{event.name}</h2>
@@ -98,169 +228,20 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
           ))}
         </div>
 
-        {/* Overview tab */}
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Categorias</CardTitle>
-                <CardDescription>Categorias cadastradas no evento</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-indigo-600">{event.categories.length}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Árbitros</CardTitle>
-                <CardDescription>Árbitros registrados</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-indigo-600">{event.referees.length}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Arenas</CardTitle>
-                <CardDescription>Arenas disponíveis</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-indigo-600">{event.arenas.length}</p>
-              </CardContent>
-            </Card>
-          </div>
+          <AdminOverviewTab
+            categoriesCount={visibleCategories.length}
+            refereesCount={event.referees.length}
+            arenasCount={event.arenas.length}
+          />
         )}
 
-        {/* Categories tab */}
-        {activeTab === "categories" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Categorias</h3>
-            </div>
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {event.categories.map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell>
-                          <Badge variant={category.type === "RESCUE" ? "default" : "secondary"}>
-                            {category.type === "RESCUE" ? "Resgate" : "Artístico"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={`/ranking?categoryId=${category.id}`}>Ver Ranking</a>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {activeTab === "categories" && <AdminCategoriesTab categories={visibleCategories} />}
 
-        {/* Teams tab */}
         {activeTab === "teams" && (
-          <div className="space-y-6">
-            {event.categories.map((category) => (
-              <CategoryTeamsSection
-                key={category.id}
-                categoryId={category.id}
-                categoryName={category.name}
-              />
-            ))}
-          </div>
+          <AdminTeamsTab eventId={eventId} categories={visibleCategories} />
         )}
       </main>
-    </div>
-  );
-}
-
-interface CategoryTeamsSectionProps {
-  categoryId: string;
-  categoryName: string;
-}
-
-function CategoryTeamsSection({ categoryId, categoryName }: CategoryTeamsSectionProps) {
-  const { data: teams } = trpc.team.listByCategory.useQuery(categoryId);
-  const confirmMutation = trpc.team.confirmAttendance.useMutation();
-  const revokeMutation = trpc.team.revokeAttendance.useMutation();
-
-  return (
-    <div>
-      <h3 className="text-lg font-semibold mb-3">{categoryName}</h3>
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Equipe</TableHead>
-                <TableHead>Instituição</TableHead>
-                <TableHead>Cidade/UF</TableHead>
-                <TableHead>Presença</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!teams || teams.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    Nenhuma equipe cadastrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                teams.map((team) => (
-                  <TableRow key={team.id}>
-                    <TableCell className="font-medium">{team.name}</TableCell>
-                    <TableCell>{team.institution}</TableCell>
-                    <TableCell>
-                      {team.city}/{team.state}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={team.attendanceConfirmed ? "default" : "outline"}>
-                        {team.attendanceConfirmed ? "Confirmada" : "Pendente"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {team.attendanceConfirmed ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => revokeMutation.mutate(team.id)}
-                          disabled={revokeMutation.isPending}
-                        >
-                          Revogar
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => confirmMutation.mutate(team.id)}
-                          disabled={confirmMutation.isPending}
-                        >
-                          Confirmar
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/presentation/components/ui/button";
@@ -20,20 +20,17 @@ export default function SetupPage() {
 
   const [form, setForm] = useState({
     name: "",
-    description: "",
-    location: "",
-    startDate: "",
     adminPassword: "",
     refereePassword: "",
   });
 
-  const needsSetupQuery = trpc.event.needsSetup.useQuery(undefined, {
-    onSuccess(needsSetup) {
-      if (!needsSetup) {
-        router.replace("/login");
-      }
-    },
-  });
+  const needsSetupQuery = trpc.event.needsSetup.useQuery();
+
+  useEffect(() => {
+    if (needsSetupQuery.data === false) {
+      router.replace("/login");
+    }
+  }, [needsSetupQuery.data, router]);
 
   const bootstrapMutation = trpc.event.bootstrap.useMutation({
     onSuccess: () => {
@@ -54,20 +51,13 @@ export default function SetupPage() {
     setError("");
 
     if (!form.name.trim()) return setError("Nome do evento é obrigatório.");
-    if (!form.startDate) return setError("Data de início é obrigatória.");
     if (form.adminPassword.length < 4)
       return setError("Senha do admin deve ter pelo menos 4 caracteres.");
     if (form.refereePassword.length < 4)
       return setError("Senha do árbitro deve ter pelo menos 4 caracteres.");
 
-    // Convert the local date string to an ISO datetime string
-    const startDate = new Date(form.startDate).toISOString();
-
     bootstrapMutation.mutate({
       name: form.name,
-      description: form.description || undefined,
-      location: form.location || undefined,
-      startDate,
       adminPassword: form.adminPassword,
       refereePassword: form.refereePassword,
     });
@@ -86,7 +76,7 @@ export default function SetupPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-lg space-y-6">
         <div className="text-center">
-          <h1 className="text-4xl font-bold">⚔️ Valhalla</h1>
+          <h1 className="text-4xl font-bold">Valhalla</h1>
           <p className="text-muted-foreground">Configuração Inicial</p>
         </div>
 
@@ -95,7 +85,7 @@ export default function SetupPage() {
             <CardTitle>Criar Primeiro Evento</CardTitle>
             <CardDescription>
               Bem-vindo! Configure o primeiro evento da temporada para começar a usar o sistema. As
-              4 categorias padrão (Rescue L1, Rescue L2, Artístico L1, Artístico L2) serão criadas
+              4 categorias padrão (Rescue L1, Rescue L2, Artística L1, Artística L2) serão criadas
               automaticamente.
             </CardDescription>
           </CardHeader>
@@ -113,39 +103,6 @@ export default function SetupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Local</Label>
-                <Input
-                  id="location"
-                  placeholder="Ex: São Paulo, SP"
-                  value={form.location}
-                  onChange={(e) => handleChange("location", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Input
-                  id="description"
-                  placeholder="Descrição opcional do evento"
-                  value={form.description}
-                  onChange={(e) => handleChange("description", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Data de Início *</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => handleChange("startDate", e.target.value)}
-                  required
-                />
-              </div>
-
-              <hr className="my-2" />
-
-              <div className="space-y-2">
                 <Label htmlFor="adminPassword">Senha do Admin *</Label>
                 <Input
                   id="adminPassword"
@@ -157,6 +114,8 @@ export default function SetupPage() {
                   required
                 />
               </div>
+
+              <hr className="my-2" />
 
               <div className="space-y-2">
                 <Label htmlFor="refereePassword">Senha dos Árbitros *</Label>

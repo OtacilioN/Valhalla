@@ -59,7 +59,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo / Title */}
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-indigo-700">⚔️ Valhalla</h1>
+          <h1 className="text-4xl font-bold text-indigo-700">Valhalla</h1>
           <p className="text-gray-500 text-sm">Gerenciador de Torneios OBR</p>
         </div>
 
