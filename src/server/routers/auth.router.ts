@@ -37,9 +37,10 @@ export const authRouter = router({
   changeRefereePassword: adminProcedure
     .input(z.object({ newPassword: z.string().min(4) }))
     .mutation(async ({ ctx, input }) => {
+      const hash = await AuthService.hashPassword(input.newPassword);
       await ctx.prisma.event.update({
         where: { id: ctx.user.eventId },
-        data: { refereePassword: input.newPassword },
+        data: { refereePassword: hash },
       });
       return { success: true };
     }),

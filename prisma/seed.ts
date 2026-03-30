@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import {
   DEFAULT_CATEGORIES,
   RESCUE_COLUMNS,
@@ -30,8 +31,8 @@ async function main() {
       startDate: new Date("2026-04-01"),
       endDate: new Date("2026-04-02"),
       isActive: true,
-      adminPassword: "admin123",
-      refereePassword: "referee123",
+      adminPassword: await bcrypt.hash("admin123", 10),
+      refereePassword: await bcrypt.hash("referee123", 10),
     },
   });
 

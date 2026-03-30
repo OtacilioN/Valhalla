@@ -8,6 +8,7 @@ import {
   RESCUE_SCORING_FORMULA,
   ARTISTIC_SCORING_FORMULA,
 } from "@/domain/entities/category";
+import { AuthService } from "@/application/services/auth.service";
 
 const createEventSchema = z.object({
   name: z.string().min(1).max(200),
@@ -76,6 +77,12 @@ export const eventRouter = router({
   }),
 
   create: adminProcedure.input(createEventSchema).mutation(async ({ ctx, input }) => {
+    // Hash passwords before storing
+    const [adminHash, refereeHash] = await Promise.all([
+      AuthService.hashPassword(input.adminPassword),
+      AuthService.hashPassword(input.refereePassword),
+    ]);
+
     // Create the event
     const event = await ctx.prisma.event.create({
       data: {
@@ -84,8 +91,8 @@ export const eventRouter = router({
         location: input.location,
         startDate: new Date(input.startDate),
         endDate: input.endDate ? new Date(input.endDate) : undefined,
-        adminPassword: input.adminPassword,
-        refereePassword: input.refereePassword,
+        adminPassword: adminHash,
+        refereePassword: refereeHash,
         isActive: false,
       },
     });

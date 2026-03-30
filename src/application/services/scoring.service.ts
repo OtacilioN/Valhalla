@@ -4,18 +4,52 @@ import { logger } from "@/lib/logger";
 type ScoringFunction = (scores: number[]) => [number, ...number[]];
 
 /**
+ * Validates that a formula string looks like a safe IIFE.
+ * Formulas are admin-controlled, but we still apply basic checks.
+ */
+function validateFormula(formula: string): void {
+  if (typeof formula !== "string" || formula.length === 0) {
+    throw new Error("Formula must be a non-empty string");
+  }
+  if (formula.length > 4000) {
+    throw new Error("Formula exceeds maximum allowed length");
+  }
+  // Block obvious injection patterns
+  const blocked = [
+    /\brequire\s*\(/,
+    /\bimport\s*\(/,
+    /\bprocess\s*\./,
+    /\b__dirname\b/,
+    /\beval\s*\(/,
+    /\bfetch\s*\(/,
+    /\bXMLHttpRequest\b/,
+    /\bnode:/,
+  ];
+  for (const pattern of blocked) {
+    if (pattern.test(formula)) {
+      throw new Error("Formula contains disallowed code patterns");
+    }
+  }
+}
+
+/**
  * Safely evaluate a scoring formula string.
  * The formula must be an IIFE that takes scores: number[] and returns an array.
+ *
+ * NOTE: Formulas are admin-created and stored in the database.
+ * They are not end-user input. Basic validation is applied to
+ * prevent accidental misuse, but the system relies on admin trust.
  */
 function compileScoringFormula(formula: string): ScoringFunction {
   try {
-    // The formula is stored as an IIFE string like: (function(scores) { ... })
-    // We evaluate it to get the function, then call it with scores.
+    validateFormula(formula);
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const fn = new Function(`return ${formula}`)() as ScoringFunction;
     return fn;
   } catch (err) {
-    logger.error("Failed to compile scoring formula", { formula, err });
+    logger.error("Failed to compile scoring formula", {
+      err: err instanceof Error ? err.message : String(err),
+    });
     // Fallback: return sum of scores
     return (scores) => [scores.reduce((a, b) => a + b, 0)];
   }

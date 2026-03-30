@@ -1,8 +1,25 @@
+import bcrypt from "bcryptjs";
 import type { UserRole, SessionUser } from "@/domain/entities/user";
 import { prisma } from "@/infrastructure/database/prisma";
 import { getSession } from "@/infrastructure/auth/session";
 
+const BCRYPT_ROUNDS = 10;
+
 export class AuthService {
+  /**
+   * Hash a password before storing it.
+   */
+  static async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, BCRYPT_ROUNDS);
+  }
+
+  /**
+   * Verify a password against a stored hash.
+   */
+  static async verifyPassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
+  }
+
   /**
    * Authenticate a user against the event passwords.
    * Returns a session user if authentication is successful.
@@ -15,12 +32,15 @@ export class AuthService {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return null;
 
-    const isValid =
-      role === "ADMIN"
-        ? password === event.adminPassword
-        : role === "REFEREE"
-          ? password === event.refereePassword
-          : true; // PUBLIC requires no password
+    let isValid = false;
+    if (role === "ADMIN") {
+      isValid = await AuthService.verifyPassword(password, event.adminPassword);
+    } else if (role === "REFEREE") {
+      isValid = await AuthService.verifyPassword(password, event.refereePassword);
+    } else {
+      // PUBLIC requires no password
+      isValid = true;
+    }
 
     if (!isValid) return null;
 
