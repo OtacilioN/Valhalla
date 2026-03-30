@@ -10,6 +10,7 @@ export interface Event {
   isActive: boolean;
   adminPassword: string;
   refereePassword: string;
+  surpriseChallenge: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +23,7 @@ export type CreateEventInput = {
   endDate?: Date;
   adminPassword: string;
   refereePassword: string;
+  surpriseChallenge?: boolean;
 };
 
 export type UpdateEventInput = Partial<
@@ -29,5 +31,6 @@ export type UpdateEventInput = Partial<
     adminPassword?: string;
     refereePassword?: string;
     isActive?: boolean;
+    surpriseChallenge?: boolean;
   }
 >;

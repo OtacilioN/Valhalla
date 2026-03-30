@@ -16,6 +16,7 @@ import { AdminOverviewTab } from "./components/AdminOverviewTab";
 import { AdminCategoriesTab } from "./components/AdminCategoriesTab";
 import { AdminTeamsTab } from "./components/AdminTeamsTab";
 import { AdminScoringTab } from "./components/AdminScoringTab";
+import { AdminArenasTab } from "./components/AdminArenasTab";
 import { formatDate } from "@/lib/utils";
 
 interface AdminDashboardClientProps {
@@ -24,7 +25,7 @@ interface AdminDashboardClientProps {
 
 export default function AdminDashboardClient({ eventId }: AdminDashboardClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories" | "scoring">(
+  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories" | "scoring" | "arenas">(
     "overview",
   );
   const [showCreateEventForm, setShowCreateEventForm] = useState(false);
@@ -38,8 +39,12 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
   const { data: event, isLoading } = trpc.event.getById.useQuery(eventId);
   const { data: categories } = trpc.category.listByEvent.useQuery(eventId);
   const visibleCategories = categories ?? event?.categories ?? [];
+  const utils = trpc.useUtils();
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => router.push("/login"),
+  });
+  const updateEventMutation = trpc.event.update.useMutation({
+    onSuccess: () => utils.event.getById.invalidate(eventId),
   });
   const createEventMutation = trpc.event.create.useMutation({
     onSuccess: () => {
@@ -216,7 +221,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
 
         {/* Navigation tabs */}
         <div className="flex gap-2 mb-6 border-b">
-          {(["overview", "teams", "categories", "scoring"] as const).map((tab) => (
+          {(["overview", "teams", "categories", "scoring", "arenas"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -232,7 +237,9 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   ? "Equipes"
                   : tab === "categories"
                     ? "Categorias"
-                    : "Pontuação"}
+                    : tab === "arenas"
+                      ? "Arenas"
+                      : "Pontuação"}
             </button>
           ))}
         </div>
@@ -252,6 +259,8 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
         )}
 
         {activeTab === "scoring" && <AdminScoringTab categories={visibleCategories} />}
+
+        {activeTab === "arenas" && <AdminArenasTab eventId={eventId} />}
       </main>
     </div>
   );
