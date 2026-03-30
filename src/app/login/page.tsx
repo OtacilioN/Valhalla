@@ -14,7 +14,7 @@ import {
 import { Input } from "@/presentation/components/ui/input";
 import { Label } from "@/presentation/components/ui/label";
 
-type Role = "ADMIN" | "REFEREE";
+type Role = "ADMIN" | "REFEREE" | "SECRETARIAT";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,6 +35,8 @@ export default function LoginPage() {
     onSuccess: (data) => {
       if (data.role === "ADMIN") {
         router.push("/dashboard/admin");
+      } else if (data.role === "SECRETARIAT") {
+        router.push("/dashboard/secretariat");
       } else {
         router.push("/dashboard/referee");
       }
@@ -97,7 +99,7 @@ export default function LoginPage() {
               {/* Role selector */}
               <div className="space-y-1">
                 <Label>Papel</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     type="button"
                     variant={role === "ADMIN" ? "default" : "outline"}
@@ -111,6 +113,13 @@ export default function LoginPage() {
                     onClick={() => setRole("REFEREE")}
                   >
                     🏁 Árbitro
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={role === "SECRETARIAT" ? "default" : "outline"}
+                    onClick={() => setRole("SECRETARIAT")}
+                  >
+                    📋 Secretaria
                   </Button>
                 </div>
               </div>

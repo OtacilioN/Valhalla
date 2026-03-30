@@ -35,6 +35,17 @@ export const refereeProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, user } });
 });
 
+export const secretariatProcedure = t.procedure.use(({ ctx, next }) => {
+  const user = ctx.session.user;
+  if (!user) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  if (user.role !== "SECRETARIAT" && user.role !== "ADMIN") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx: { ...ctx, user } });
+});
+
 export const adminProcedure = t.procedure.use(({ ctx, next }) => {
   const user = ctx.session.user;
   if (!user) {
