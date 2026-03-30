@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+// SQLite does not support native enums; we use String with validation at the
+// application layer via Zod.
+
+// Role: ADMIN | REFEREE | PUBLIC
+// CategoryType: RESCUE | ARTISTIC
+// ScoreColumnPreset: RESCUE | ARTISTIC
+
+// ─── Event ────────────────────────────────────────────────────────────────────
+
+model Event {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  location       String?
+  startDate      DateTime
+  endDate        DateTime?
+  isActive       Boolean  @default(false)
+  adminPassword  String   // hashed
+  refereePassword String  // hashed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  arenas     Arena[]
+  categories Category[]
+  referees   Referee[]
+
+  @@map("events")
+}
+
+// ─── Arena ────────────────────────────────────────────────────────────────────
+
+model Arena {
+  id    String @id @default(cuid())
+  name  String
+  order Int    @default(0)
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scores Score[]
+
+  @@map("arenas")
+}
+
+// ─── Category ─────────────────────────────────────────────────────────────────
+
+model Category {
+  id          String @id @default(cuid())
+  name        String
+  type        String // "RESCUE" | "ARTISTIC"
+  order       Int    @default(0)
+  scoringFormula String // JavaScript function source code
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams         Team[]
+  scoreColumns  ScoreColumn[]
+  scores        Score[]
+
+  @@map("categories")
+}
+
+// ─── ScoreColumn ──────────────────────────────────────────────────────────────
+
+model ScoreColumn {
+  id         String @id @default(cuid())
+  name       String
+  order      Int    @default(0)
+  isReadOnly Boolean @default(false) // e.g. "Team" and "Final Score" columns
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("score_columns")
+}
+
+// ─── Team ─────────────────────────────────────────────────────────────────────
+
+model Team {
+  id                   String  @id @default(cuid())
+  name                 String
+  institution          String
+  city                 String
+  state                String
+  attendanceConfirmed  Boolean @default(false)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scores Score[]
+
+  @@map("teams")
+}
+
+// ─── Score ────────────────────────────────────────────────────────────────────
+
+model Score {
+  id          String  @id @default(cuid())
+  columnIndex Int     // which score column this value belongs to
+  value       Float
+
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  arenaId String?
+  arena   Arena?   @relation(fields: [arenaId], references: [id], onDelete: SetNull)
+
+  submittedBy String? // refereeId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, categoryId, columnIndex])
+
+  @@map("scores")
+}
+
+// ─── Referee ──────────────────────────────────────────────────────────────────
+
+model Referee {
+  id   String @id @default(cuid())
+  name String
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("referees")
+}
