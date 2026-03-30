@@ -90,8 +90,17 @@ export const teamRouter = router({
    * Used by the secretariat check-in screen.
    */
   listByEvent: secretariatProcedure.input(z.string()).query(async ({ ctx, input: eventId }) => {
+    const effectiveEventId = ctx.user.eventId;
+
+    if (eventId !== effectiveEventId) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Cannot access teams for a different event",
+      });
+    }
+
     return ctx.prisma.team.findMany({
-      where: { category: { eventId } },
+      where: { category: { eventId: effectiveEventId } },
       include: { category: { select: { id: true, name: true, type: true } } },
       orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
     });
