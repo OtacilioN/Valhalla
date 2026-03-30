@@ -35,7 +35,7 @@ export default function RankingClient() {
       <header className="bg-indigo-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">⚔️ Valhalla</h1>
+            <h1 className="text-3xl font-bold">Valhalla</h1>
             <p className="text-indigo-200 text-sm mt-1">Ranking em Tempo Real</p>
           </div>
           {activeEvent && (
@@ -96,7 +96,7 @@ export default function RankingClient() {
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-bold">{rankingData.category.name}</h2>
                   <Badge variant={rankingData.category.type === "RESCUE" ? "default" : "secondary"}>
-                    {rankingData.category.type === "RESCUE" ? "Resgate" : "Artístico"}
+                    {rankingData.category.type === "RESCUE" ? "Resgate" : "Artística"}
                   </Badge>
                 </div>
 

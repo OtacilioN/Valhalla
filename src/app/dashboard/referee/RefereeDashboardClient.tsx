@@ -51,7 +51,7 @@ export default function RefereeDashboardClient({ eventId }: RefereeDashboardClie
       <header className="bg-white border-b shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-bold text-indigo-700">⚔️ Valhalla</span>
+            <span className="text-2xl font-bold text-indigo-700">Valhalla</span>
             <Badge variant="outline">Árbitro</Badge>
           </div>
           <div className="flex items-center gap-3">
@@ -79,7 +79,7 @@ export default function RefereeDashboardClient({ eventId }: RefereeDashboardClie
                     <CardTitle>{category.name}</CardTitle>
                     <CardDescription>
                       <Badge variant={category.type === "RESCUE" ? "default" : "secondary"}>
-                        {category.type === "RESCUE" ? "Resgate" : "Artístico"}
+                        {category.type === "RESCUE" ? "Resgate" : "Artística"}
                       </Badge>
                     </CardDescription>
                   </CardHeader>

@@ -43,6 +43,19 @@ export const teamRouter = router({
   }),
 
   create: adminProcedure.input(createTeamSchema).mutation(async ({ ctx, input }) => {
+    const category = await ctx.prisma.category.findUnique({
+      where: { id: input.categoryId },
+      select: { eventId: true },
+    });
+
+    if (!category) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Category not found" });
+    }
+
+    if (category.eventId !== ctx.user.eventId) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Category does not belong to your event" });
+    }
+
     return ctx.prisma.team.create({ data: input });
   }),
 

@@ -21,6 +21,12 @@ const createEventSchema = z.object({
   refereePassword: z.string().min(4),
 });
 
+const bootstrapEventSchema = z.object({
+  name: z.string().min(1).max(200),
+  adminPassword: z.string().min(4),
+  refereePassword: z.string().min(4),
+});
+
 const updateEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(200).optional(),
@@ -36,7 +42,7 @@ const updateEventSchema = z.object({
  */
 async function createEventWithDefaults(
   prisma: PrismaClient,
-  input: z.infer<typeof createEventSchema>,
+  input: z.infer<typeof createEventSchema> & { startDate: string },
   isActive = false,
 ) {
   const [adminHash, refereeHash] = await Promise.all([
@@ -145,7 +151,7 @@ export const eventRouter = router({
    * Only allowed when the events table is completely empty.
    * Creates the event as active and logs the admin in automatically.
    */
-  bootstrap: publicProcedure.input(createEventSchema).mutation(async ({ ctx, input }) => {
+  bootstrap: publicProcedure.input(bootstrapEventSchema).mutation(async ({ ctx, input }) => {
     const count = await ctx.prisma.event.count();
     if (count > 0) {
       throw new TRPCError({
@@ -154,8 +160,13 @@ export const eventRouter = router({
       });
     }
 
+    const payload = {
+      ...input,
+      startDate: new Date().toISOString(),
+    };
+
     // First event is created as active
-    const event = await createEventWithDefaults(ctx.prisma, input, true);
+    const event = await createEventWithDefaults(ctx.prisma, payload, true);
 
     // Automatically log the caller in as admin
     ctx.session.user = { role: "ADMIN" as const, eventId: event.id };
