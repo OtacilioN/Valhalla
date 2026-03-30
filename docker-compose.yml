@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  valhalla:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: valhalla:latest
+    container_name: valhalla
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - valhalla_data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/valhalla.db
+      - SESSION_SECRET=${SESSION_SECRET:-change-this-to-a-very-long-random-secret-string-minimum-32-chars}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/trpc/event.getActive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  valhalla_data:
+    driver: local
