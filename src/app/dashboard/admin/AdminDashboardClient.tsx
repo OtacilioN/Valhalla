@@ -39,12 +39,8 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
   const { data: event, isLoading } = trpc.event.getById.useQuery(eventId);
   const { data: categories } = trpc.category.listByEvent.useQuery(eventId);
   const visibleCategories = categories ?? event?.categories ?? [];
-  const utils = trpc.useUtils();
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => router.push("/login"),
-  });
-  const updateEventMutation = trpc.event.update.useMutation({
-    onSuccess: () => utils.event.getById.invalidate(eventId),
   });
   const createEventMutation = trpc.event.create.useMutation({
     onSuccess: () => {
