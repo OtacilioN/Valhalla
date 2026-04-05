@@ -123,10 +123,16 @@ export function AdminArenasTab({ eventId }: AdminArenasTabProps) {
     }
 
     const tiles = parseCheckpointTiles(form.checkpointTiles);
-    if (form.checkpointCount > 0 && tiles.length !== form.checkpointCount) {
-      setFormError(
-        `Informe exatamente ${form.checkpointCount} quantidade(s) de ladrilhos, separadas por vírgula.`,
-      );
+    if (tiles.length !== form.checkpointCount) {
+      if (form.checkpointCount === 0 && form.checkpointTiles.trim() !== "") {
+        setFormError(
+          "Ladrilhos por checkpoint devem estar vazios quando a quantidade de checkpoints é 0.",
+        );
+      } else {
+        setFormError(
+          `Informe exatamente ${form.checkpointCount} quantidade(s) de ladrilhos, separadas por vírgula.`,
+        );
+      }
       return;
     }
 
@@ -145,7 +151,6 @@ export function AdminArenasTab({ eventId }: AdminArenasTabProps) {
       });
     } else {
       createMutation.mutate({
-        eventId,
         name: form.name,
         checkpointCount: form.checkpointCount,
         checkpointTiles: tiles,
@@ -170,18 +175,14 @@ export function AdminArenasTab({ eventId }: AdminArenasTabProps) {
             Configure as arenas e seus desafios para este evento.
           </p>
         </div>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)}>Adicionar Arena</Button>
-        )}
+        {!showForm && <Button onClick={() => setShowForm(true)}>Adicionar Arena</Button>}
       </div>
 
       {showForm && (
         <Card>
           <CardHeader>
             <CardTitle>{editingId ? "Editar Arena" : "Nova Arena"}</CardTitle>
-            <CardDescription>
-              Configure os desafios presentes nesta arena.
-            </CardDescription>
+            <CardDescription>Configure os desafios presentes nesta arena.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -214,9 +215,7 @@ export function AdminArenasTab({ eventId }: AdminArenasTabProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      Ladrilhos por Checkpoint
-                    </label>
+                    <label className="text-sm font-medium">Ladrilhos por Checkpoint</label>
                     <input
                       type="text"
                       className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -252,9 +251,7 @@ export function AdminArenasTab({ eventId }: AdminArenasTabProps) {
                         min={0}
                         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         value={form[field] as number}
-                        onChange={(e) =>
-                          handleChange(field, parseInt(e.target.value, 10) || 0)
-                        }
+                        onChange={(e) => handleChange(field, parseInt(e.target.value, 10) || 0)}
                       />
                     </div>
                   ))}
@@ -335,9 +332,7 @@ export function AdminArenasTab({ eventId }: AdminArenasTabProps) {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium">
-                      Checkpoints: {arena.checkpointCount}
-                    </p>
+                    <p className="text-sm font-medium">Checkpoints: {arena.checkpointCount}</p>
                     {tiles.length > 0 && (
                       <p className="text-sm text-muted-foreground">
                         Ladrilhos por checkpoint:{" "}

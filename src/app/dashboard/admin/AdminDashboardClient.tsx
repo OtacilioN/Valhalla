@@ -25,9 +25,9 @@ interface AdminDashboardClientProps {
 
 export default function AdminDashboardClient({ eventId }: AdminDashboardClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories" | "scoring" | "arenas">(
-    "overview",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "teams" | "categories" | "scoring" | "arenas"
+  >("overview");
   const [showCreateEventForm, setShowCreateEventForm] = useState(false);
   const [createEventError, setCreateEventError] = useState("");
   const [createEventForm, setCreateEventForm] = useState({
@@ -245,6 +245,14 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
             categoriesCount={visibleCategories.length}
             refereesCount={event.referees.length}
             arenasCount={event.arenas.length}
+            surpriseChallenge={event.surpriseChallenge}
+            onToggleSurpriseChallenge={() =>
+              updateEventMutation.mutate({
+                id: eventId,
+                surpriseChallenge: !event.surpriseChallenge,
+              })
+            }
+            isUpdating={updateEventMutation.isPending}
           />
         )}
 

@@ -2,33 +2,48 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, adminProcedure } from "@/server/trpc/trpc";
 
-const createArenaSchema = z.object({
-  eventId: z.string().min(1),
-  name: z.string().min(1).max(200),
-  order: z.number().int().min(0).optional(),
-  checkpointCount: z.number().int().min(0).default(0),
-  checkpointTiles: z.array(z.number().int().min(0)).default([]),
-  seesaws: z.number().int().min(0).default(0),
-  intersections: z.number().int().min(0).default(0),
-  obstacles: z.number().int().min(0).default(0),
-  ramps: z.number().int().min(0).default(0),
-  gaps: z.number().int().min(0).default(0),
-  speedBumps: z.number().int().min(0).default(0),
-});
+const createArenaSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    order: z.number().int().min(0).optional(),
+    checkpointCount: z.number().int().min(0).default(0),
+    checkpointTiles: z.array(z.number().int().min(0)).default([]),
+    seesaws: z.number().int().min(0).default(0),
+    intersections: z.number().int().min(0).default(0),
+    obstacles: z.number().int().min(0).default(0),
+    ramps: z.number().int().min(0).default(0),
+    gaps: z.number().int().min(0).default(0),
+    speedBumps: z.number().int().min(0).default(0),
+  })
+  .refine((data) => data.checkpointTiles.length === data.checkpointCount, {
+    message: "checkpointTiles length must match checkpointCount",
+    path: ["checkpointTiles"],
+  });
 
-const updateArenaSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).max(200).optional(),
-  order: z.number().int().min(0).optional(),
-  checkpointCount: z.number().int().min(0).optional(),
-  checkpointTiles: z.array(z.number().int().min(0)).optional(),
-  seesaws: z.number().int().min(0).optional(),
-  intersections: z.number().int().min(0).optional(),
-  obstacles: z.number().int().min(0).optional(),
-  ramps: z.number().int().min(0).optional(),
-  gaps: z.number().int().min(0).optional(),
-  speedBumps: z.number().int().min(0).optional(),
-});
+const updateArenaSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1).max(200).optional(),
+    order: z.number().int().min(0).optional(),
+    checkpointCount: z.number().int().min(0).optional(),
+    checkpointTiles: z.array(z.number().int().min(0)).optional(),
+    seesaws: z.number().int().min(0).optional(),
+    intersections: z.number().int().min(0).optional(),
+    obstacles: z.number().int().min(0).optional(),
+    ramps: z.number().int().min(0).optional(),
+    gaps: z.number().int().min(0).optional(),
+    speedBumps: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (data) =>
+      data.checkpointCount === undefined ||
+      data.checkpointTiles === undefined ||
+      data.checkpointTiles.length === data.checkpointCount,
+    {
+      message: "checkpointTiles length must match checkpointCount",
+      path: ["checkpointTiles"],
+    },
+  );
 
 export const arenaRouter = router({
   listByEvent: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
@@ -48,10 +63,12 @@ export const arenaRouter = router({
 
   create: adminProcedure.input(createArenaSchema).mutation(async ({ ctx, input }) => {
     const { checkpointTiles, ...rest } = input;
-    const count = await ctx.prisma.arena.count({ where: { eventId: input.eventId } });
+    const eventId = ctx.user.eventId;
+    const count = await ctx.prisma.arena.count({ where: { eventId } });
     return ctx.prisma.arena.create({
       data: {
         ...rest,
+        eventId,
         order: input.order ?? count,
         checkpointTiles: JSON.stringify(checkpointTiles),
       },
