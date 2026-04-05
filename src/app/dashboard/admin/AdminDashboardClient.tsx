@@ -16,6 +16,7 @@ import { AdminOverviewTab } from "./components/AdminOverviewTab";
 import { AdminCategoriesTab } from "./components/AdminCategoriesTab";
 import { AdminTeamsTab } from "./components/AdminTeamsTab";
 import { AdminScoringTab } from "./components/AdminScoringTab";
+import { AdminArenasTab } from "./components/AdminArenasTab";
 import { formatDate } from "@/lib/utils";
 
 interface AdminDashboardClientProps {
@@ -24,9 +25,9 @@ interface AdminDashboardClientProps {
 
 export default function AdminDashboardClient({ eventId }: AdminDashboardClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "categories" | "scoring">(
-    "overview",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "teams" | "categories" | "scoring" | "arenas"
+  >("overview");
   const [showCreateEventForm, setShowCreateEventForm] = useState(false);
   const [createEventError, setCreateEventError] = useState("");
   const [createEventForm, setCreateEventForm] = useState({
@@ -242,7 +243,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
 
         {/* Navigation tabs */}
         <div className="flex gap-2 mb-6 border-b">
-          {(["overview", "teams", "categories", "scoring"] as const).map((tab) => (
+          {(["overview", "teams", "categories", "scoring", "arenas"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -258,7 +259,9 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   ? "Equipes"
                   : tab === "categories"
                     ? "Categorias"
-                    : "Pontuação"}
+                    : tab === "arenas"
+                      ? "Arenas"
+                      : "Pontuação"}
             </button>
           ))}
         </div>
@@ -268,6 +271,14 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
             categoriesCount={visibleCategories.length}
             refereesCount={event.referees.length}
             arenasCount={event.arenas.length}
+            surpriseChallenge={event.surpriseChallenge}
+            onToggleSurpriseChallenge={() =>
+              updateEventMutation.mutate({
+                id: eventId,
+                surpriseChallenge: !event.surpriseChallenge,
+              })
+            }
+            isUpdating={updateEventMutation.isPending}
           />
         )}
 
@@ -278,6 +289,8 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
         )}
 
         {activeTab === "scoring" && <AdminScoringTab categories={visibleCategories} />}
+
+        {activeTab === "arenas" && <AdminArenasTab eventId={eventId} />}
       </main>
     </div>
   );

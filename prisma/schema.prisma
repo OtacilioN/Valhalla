@@ -32,6 +32,7 @@ model Event {
   adminPassword        String   // bcrypt hash
   refereePassword      String   // bcrypt hash
   secretariatPassword  String   // bcrypt hash
+  surpriseChallenge    Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -49,6 +50,16 @@ model Arena {
   id    String @id @default(cuid())
   name  String
   order Int    @default(0)
+
+  // Challenge configuration
+  checkpointCount Int    @default(0)
+  checkpointTiles String @default("[]") // JSON array of tile counts per checkpoint
+  seesaws         Int    @default(0)
+  intersections   Int    @default(0)
+  obstacles       Int    @default(0)
+  ramps           Int    @default(0)
+  gaps            Int    @default(0)
+  speedBumps      Int    @default(0)
 
   eventId String
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)

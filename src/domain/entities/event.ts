@@ -11,6 +11,7 @@ export interface Event {
   adminPassword: string;
   refereePassword: string;
   secretariatPassword: string;
+  surpriseChallenge: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,7 @@ export type CreateEventInput = {
   adminPassword: string;
   refereePassword: string;
   secretariatPassword: string;
+  surpriseChallenge?: boolean;
 };
 
 export type UpdateEventInput = Partial<
@@ -32,5 +34,6 @@ export type UpdateEventInput = Partial<
     refereePassword?: string;
     secretariatPassword?: string;
     isActive?: boolean;
+    surpriseChallenge?: boolean;
   }
 >;

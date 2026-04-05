@@ -36,6 +36,7 @@ const updateEventSchema = z.object({
   location: z.string().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
+  surpriseChallenge: z.boolean().optional(),
 });
 
 /**
