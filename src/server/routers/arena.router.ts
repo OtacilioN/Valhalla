@@ -83,6 +83,9 @@ export const arenaRouter = router({
     if (!arena) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Arena not found" });
     }
+    if (arena.eventId !== ctx.user.eventId) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to delete this arena" });
+    }
     await ctx.prisma.arena.delete({ where: { id: input } });
     return { success: true };
   }),
