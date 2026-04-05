@@ -29,8 +29,9 @@ model Event {
   startDate      DateTime
   endDate        DateTime?
   isActive       Boolean  @default(false)
-  adminPassword  String   // bcrypt hash
-  refereePassword String  // bcrypt hash
+  adminPassword        String   // bcrypt hash
+  refereePassword      String   // bcrypt hash
+  secretariatPassword  String   // bcrypt hash
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

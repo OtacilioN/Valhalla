@@ -1,6 +1,6 @@
 // Domain entity types for User/Session
 
-export type UserRole = "ADMIN" | "REFEREE" | "PUBLIC";
+export type UserRole = "ADMIN" | "REFEREE" | "SECRETARIAT" | "PUBLIC";
 
 export interface SessionUser {
   role: UserRole;

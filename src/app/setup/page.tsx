@@ -22,6 +22,7 @@ export default function SetupPage() {
     name: "",
     adminPassword: "",
     refereePassword: "",
+    secretariatPassword: "",
   });
 
   const needsSetupQuery = trpc.event.needsSetup.useQuery();
@@ -56,10 +57,14 @@ export default function SetupPage() {
     if (form.refereePassword.length < 4)
       return setError("Senha do árbitro deve ter pelo menos 4 caracteres.");
 
+    if (form.secretariatPassword.length < 4)
+      return setError("Senha da secretaria deve ter pelo menos 4 caracteres.");
+
     bootstrapMutation.mutate({
       name: form.name,
       adminPassword: form.adminPassword,
       refereePassword: form.refereePassword,
+      secretariatPassword: form.secretariatPassword,
     });
   }
 
@@ -126,6 +131,19 @@ export default function SetupPage() {
                   autoComplete="new-password"
                   value={form.refereePassword}
                   onChange={(e) => handleChange("refereePassword", e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secretariatPassword">Senha da Secretaria *</Label>
+                <Input
+                  id="secretariatPassword"
+                  type="password"
+                  placeholder="Mínimo 4 caracteres"
+                  autoComplete="new-password"
+                  value={form.secretariatPassword}
+                  onChange={(e) => handleChange("secretariatPassword", e.target.value)}
                   required
                 />
               </div>

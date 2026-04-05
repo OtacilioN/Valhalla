@@ -33,6 +33,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
     name: "",
     adminPassword: "",
     refereePassword: "",
+    secretariatPassword: "",
   });
 
   const { data: event, isLoading } = trpc.event.getById.useQuery(eventId);
@@ -45,7 +46,12 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
     onSuccess: () => {
       setShowCreateEventForm(false);
       setCreateEventError("");
-      setCreateEventForm({ name: "", adminPassword: "", refereePassword: "" });
+      setCreateEventForm({
+        name: "",
+        adminPassword: "",
+        refereePassword: "",
+        secretariatPassword: "",
+      });
       router.push("/login");
     },
     onError: (err) => {
@@ -74,12 +80,17 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
       setCreateEventError("Senha do árbitro deve ter pelo menos 4 caracteres.");
       return;
     }
+    if (createEventForm.secretariatPassword.length < 4) {
+      setCreateEventError("Senha da secretaria deve ter pelo menos 4 caracteres.");
+      return;
+    }
 
     createEventMutation.mutate({
       name: createEventForm.name,
       startDate: new Date().toISOString(),
       adminPassword: createEventForm.adminPassword,
       refereePassword: createEventForm.refereePassword,
+      secretariatPassword: createEventForm.secretariatPassword,
     });
   }
 
@@ -175,6 +186,21 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                     placeholder="Mínimo 4 caracteres"
                     value={createEventForm.refereePassword}
                     onChange={(e) => handleCreateEventChange("refereePassword", e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="newEventSecretariatPassword" className="text-sm font-medium">
+                    Senha da Secretaria *
+                  </label>
+                  <input
+                    id="newEventSecretariatPassword"
+                    type="password"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    placeholder="Mínimo 4 caracteres"
+                    value={createEventForm.secretariatPassword}
+                    onChange={(e) => handleCreateEventChange("secretariatPassword", e.target.value)}
                     required
                   />
                 </div>

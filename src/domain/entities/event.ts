@@ -10,6 +10,7 @@ export interface Event {
   isActive: boolean;
   adminPassword: string;
   refereePassword: string;
+  secretariatPassword: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,12 +23,14 @@ export type CreateEventInput = {
   endDate?: Date;
   adminPassword: string;
   refereePassword: string;
+  secretariatPassword: string;
 };
 
 export type UpdateEventInput = Partial<
-  Omit<CreateEventInput, "adminPassword" | "refereePassword"> & {
+  Omit<CreateEventInput, "adminPassword" | "refereePassword" | "secretariatPassword"> & {
     adminPassword?: string;
     refereePassword?: string;
+    secretariatPassword?: string;
     isActive?: boolean;
   }
 >;

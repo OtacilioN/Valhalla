@@ -5,7 +5,7 @@ import { AuthService } from "@/application/services/auth.service";
 
 const loginSchema = z.object({
   eventId: z.string().min(1),
-  role: z.enum(["ADMIN", "REFEREE"]),
+  role: z.enum(["ADMIN", "REFEREE", "SECRETARIAT"]),
   password: z.string().min(1),
 });
 

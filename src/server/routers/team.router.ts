@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, publicProcedure, adminProcedure } from "@/server/trpc/trpc";
+import { router, publicProcedure, adminProcedure, secretariatProcedure } from "@/server/trpc/trpc";
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(200),
@@ -81,5 +81,77 @@ export const teamRouter = router({
   delete: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
     await ctx.prisma.team.delete({ where: { id: input } });
     return { success: true };
+  }),
+
+  // ── Secretariat procedures ────────────────────────────────────────────────
+
+  /**
+   * List all teams for a given event (across all categories).
+   * Used by the secretariat check-in screen.
+   */
+  listByEvent: secretariatProcedure.input(z.string()).query(async ({ ctx, input: eventId }) => {
+    const effectiveEventId = ctx.user.eventId;
+
+    if (eventId !== effectiveEventId) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Cannot access teams for a different event",
+      });
+    }
+
+    return ctx.prisma.team.findMany({
+      where: { category: { eventId: effectiveEventId } },
+      include: { category: { select: { id: true, name: true, type: true } } },
+      orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
+    });
+  }),
+
+  /**
+   * Create a team with attendance already confirmed.
+   * Available to secretariat and admin roles.
+   */
+  createForSecretariat: secretariatProcedure
+    .input(createTeamSchema)
+    .mutation(async ({ ctx, input }) => {
+      const category = await ctx.prisma.category.findUnique({
+        where: { id: input.categoryId },
+        select: { eventId: true },
+      });
+
+      if (!category) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Category not found" });
+      }
+
+      if (category.eventId !== ctx.user.eventId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Category does not belong to your event",
+        });
+      }
+
+      return ctx.prisma.team.create({
+        data: { ...input, attendanceConfirmed: true },
+      });
+    }),
+
+  /**
+   * Toggle attendance status for a team.
+   * Available to secretariat and admin roles.
+   */
+  toggleAttendance: secretariatProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    const team = await ctx.prisma.team.findUnique({
+      where: { id: input },
+      select: { attendanceConfirmed: true, category: { select: { eventId: true } } },
+    });
+    if (!team) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });
+    }
+    if (team.category.eventId !== ctx.user.eventId) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Team does not belong to your event" });
+    }
+    return ctx.prisma.team.update({
+      where: { id: input },
+      data: { attendanceConfirmed: !team.attendanceConfirmed },
+    });
   }),
 });
