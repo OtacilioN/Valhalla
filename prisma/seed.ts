@@ -33,6 +33,7 @@ async function main() {
       isActive: true,
       adminPassword: await bcrypt.hash("admin123", 10),
       refereePassword: await bcrypt.hash("referee123", 10),
+      secretariatPassword: await bcrypt.hash("secretaria123", 10),
     },
   });
 

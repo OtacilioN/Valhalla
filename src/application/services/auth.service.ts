@@ -37,6 +37,8 @@ export class AuthService {
       isValid = await AuthService.verifyPassword(password, event.adminPassword);
     } else if (role === "REFEREE") {
       isValid = await AuthService.verifyPassword(password, event.refereePassword);
+    } else if (role === "SECRETARIAT") {
+      isValid = await AuthService.verifyPassword(password, event.secretariatPassword);
     } else {
       // PUBLIC requires no password
       isValid = true;
@@ -83,8 +85,9 @@ export class AuthService {
 
     const roleHierarchy: Record<UserRole, number> = {
       PUBLIC: 0,
-      REFEREE: 1,
-      ADMIN: 2,
+      SECRETARIAT: 1,
+      REFEREE: 2,
+      ADMIN: 3,
     };
 
     if (roleHierarchy[user.role] < roleHierarchy[role]) {

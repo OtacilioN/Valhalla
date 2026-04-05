@@ -19,12 +19,14 @@ const createEventSchema = z.object({
   endDate: z.string().datetime().optional(),
   adminPassword: z.string().min(4),
   refereePassword: z.string().min(4),
+  secretariatPassword: z.string().min(4),
 });
 
 const bootstrapEventSchema = z.object({
   name: z.string().min(1).max(200),
   adminPassword: z.string().min(4),
   refereePassword: z.string().min(4),
+  secretariatPassword: z.string().min(4),
 });
 
 const updateEventSchema = z.object({
@@ -46,9 +48,10 @@ async function createEventWithDefaults(
   input: z.infer<typeof createEventSchema> & { startDate: string },
   isActive = false,
 ) {
-  const [adminHash, refereeHash] = await Promise.all([
+  const [adminHash, refereeHash, secretariatHash] = await Promise.all([
     AuthService.hashPassword(input.adminPassword),
     AuthService.hashPassword(input.refereePassword),
+    AuthService.hashPassword(input.secretariatPassword),
   ]);
 
   const event = await prisma.event.create({
@@ -60,6 +63,7 @@ async function createEventWithDefaults(
       endDate: input.endDate ? new Date(input.endDate) : undefined,
       adminPassword: adminHash,
       refereePassword: refereeHash,
+      secretariatPassword: secretariatHash,
       isActive,
     },
   });
