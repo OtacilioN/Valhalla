@@ -129,7 +129,6 @@ Estas funcionalidades fazem parte do núcleo do produto OBR do `Valhalla`:
 - administração de evento
 - gestão de equipes
 - pontuação rescue e artística
-- regras versionadas por ano/etapa
 - ranking em tempo real
 - importação de equipes do Olimpo
 - sincronização de notas com o Olimpo
@@ -146,10 +145,6 @@ Estas existem no ecossistema legado, mas no `Valhalla` devem mudar de forma:
 
 - `TournamenterApp` multi-instância:
   adaptar para deployment local, instalador, modo appliance ou painel de operação, não como gerenciador Electron separado.
-- view builder genérico:
-  adaptar para um conjunto menor de “modos públicos OBR” em vez de um construtor genérico de páginas.
-- branding totalmente genérico:
-  adaptar para branding do evento OBR dentro de limites definidos.
 - senha única do legado:
   adaptar para papéis explícitos do `Valhalla` (`ADMIN`, `REFEREE`, `SECRETARIAT`, público).
 
@@ -182,7 +177,6 @@ Objetivo: tornar o `Valhalla` utilizável em um evento real da OBR sem depender 
 
 Objetivo: cobrir o que hoje existe no plugin OBR para operação nacional/regional.
 
-- regras versionadas por temporada e etapa
 - sincronização com Olimpo
 - gerador de rounds
 - desafio surpresa
