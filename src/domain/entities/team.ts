@@ -7,6 +7,11 @@ export interface Team {
   city: string;
   state: string;
   attendanceConfirmed: boolean;
+  externalSource: string | null;
+  externalId: string | null;
+  externalEventToken: string | null;
+  externalStepId: string | null;
+  externalStepName: string | null;
   categoryId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -18,6 +23,11 @@ export type CreateTeamInput = {
   city: string;
   state: string;
   categoryId: string;
+  externalSource?: string;
+  externalId?: string;
+  externalEventToken?: string;
+  externalStepId?: string;
+  externalStepName?: string;
 };
 
 export type UpdateTeamInput = Partial<Omit<CreateTeamInput, "categoryId">> & {

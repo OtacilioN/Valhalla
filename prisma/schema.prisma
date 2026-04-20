@@ -120,6 +120,11 @@ model Team {
   city                 String
   state                String
   attendanceConfirmed  Boolean @default(false)
+  externalSource       String?
+  externalId           String?
+  externalEventToken   String?
+  externalStepId       String?
+  externalStepName     String?
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)

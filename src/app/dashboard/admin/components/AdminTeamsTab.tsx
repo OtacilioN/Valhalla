@@ -33,6 +33,47 @@ interface TeamListItem {
   categoryId: string;
 }
 
+interface OlimpoPreviewAction {
+  action: "create" | "update";
+  localTeamId: string | null;
+  externalId: string;
+  externalName: string;
+  categoryId: string;
+  current: {
+    name: string;
+    institution: string;
+    city: string;
+    state: string;
+    externalEventToken: string | null;
+    externalStepId: string | null;
+    externalStepName: string | null;
+  } | null;
+  next: {
+    name: string;
+    institution: string;
+    city: string;
+    state: string;
+    externalEventToken: string;
+    externalStepId: string | null;
+    externalStepName: string | null;
+  };
+  changedFields: string[];
+}
+
+interface OlimpoPreviewResult {
+  token: string;
+  categoryId: string;
+  sourceStepId: string | null;
+  sourceStepName: string | null;
+  summary: {
+    importedCount: number;
+    createCount: number;
+    updateCount: number;
+    unchangedCount: number;
+  };
+  actions: OlimpoPreviewAction[];
+}
+
 interface AdminTeamsTabProps {
   eventId: string;
   categories: CategoryListItem[];
@@ -45,6 +86,12 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [attendanceFilter, setAttendanceFilter] = useState<AttendanceFilter>("all");
+  const [showOlimpoImport, setShowOlimpoImport] = useState(false);
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [olimpoToken, setOlimpoToken] = useState("");
+  const [olimpoCategoryId, setOlimpoCategoryId] = useState("");
+  const [olimpoError, setOlimpoError] = useState("");
+  const [olimpoPreview, setOlimpoPreview] = useState<OlimpoPreviewResult | null>(null);
   const [createCategoryError, setCreateCategoryError] = useState("");
   const [createCategoryForm, setCreateCategoryForm] = useState<{
     name: string;
@@ -81,6 +128,31 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
     },
     onError: (err) => {
       setCreateCategoryError(err.message || "Erro ao apagar categoria.");
+    },
+  });
+
+  const previewOlimpoImportMutation = trpc.team.previewOlimpoImport.useMutation({
+    onSuccess: (data) => {
+      setOlimpoError("");
+      setOlimpoPreview(data as OlimpoPreviewResult);
+    },
+    onError: (err) => {
+      setOlimpoPreview(null);
+      setOlimpoError(err.message || "Erro ao gerar prévia da importação.");
+    },
+  });
+
+  const applyOlimpoImportMutation = trpc.team.applyOlimpoImport.useMutation({
+    onSuccess: async () => {
+      setOlimpoError("");
+      setOlimpoPreview(null);
+      await Promise.all([
+        utils.team.listByEvent.invalidate(eventId),
+        utils.event.getById.invalidate(eventId),
+      ]);
+    },
+    onError: (err) => {
+      setOlimpoError(err.message || "Erro ao aplicar importação.");
     },
   });
 
@@ -172,6 +244,41 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
     deleteCategoryMutation.mutate(categoryId);
   }
 
+  function handlePreviewOlimpoImport(e: React.FormEvent) {
+    e.preventDefault();
+    setOlimpoError("");
+
+    const token = olimpoToken.trim();
+
+    if (!token) {
+      setOlimpoError("Informe o token da etapa no Olimpo.");
+      return;
+    }
+
+    if (!olimpoCategoryId) {
+      setOlimpoError("Selecione a categoria de destino no Valhalla.");
+      return;
+    }
+
+    previewOlimpoImportMutation.mutate({
+      eventId,
+      categoryId: olimpoCategoryId,
+      token,
+    });
+  }
+
+  function handleApplyOlimpoImport() {
+    if (!olimpoPreview) {
+      return;
+    }
+
+    applyOlimpoImportMutation.mutate({
+      eventId,
+      categoryId: olimpoPreview.categoryId,
+      token: olimpoPreview.token,
+    });
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -248,41 +355,225 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Nova Categoria</CardTitle>
-          <CardDescription>
-            Crie uma categoria e os critérios padrão serão adicionados automaticamente.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleCreateCategorySubmit} className="grid gap-3 md:grid-cols-3">
-            <input
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="Nome da categoria"
-              value={createCategoryForm.name}
-              onChange={(e) => handleCreateCategoryChange("name", e.target.value)}
-              required
-            />
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={createCategoryForm.type}
-              onChange={(e) =>
-                handleCreateCategoryChange(
-                  "type",
-                  (e.target.value as "RESCUE" | "ARTISTIC") ?? "RESCUE",
-                )
-              }
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>Importar Equipes do Olimpo</CardTitle>
+              <CardDescription>
+                Informe o token da etapa, compare as diferenças e confirme a importação antes de gravar.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowOlimpoImport((prev) => !prev)}
             >
-              <option value="RESCUE">Resgate</option>
-              <option value="ARTISTIC">Artística</option>
-            </select>
-            <Button type="submit" disabled={createCategoryMutation.isPending}>
-              {createCategoryMutation.isPending ? "Criando..." : "Criar categoria"}
+              {showOlimpoImport ? "Ocultar" : "Expandir"}
             </Button>
-            {createCategoryError && (
-              <p className="text-sm text-destructive md:col-span-3">{createCategoryError}</p>
+          </div>
+        </CardHeader>
+        {showOlimpoImport && (
+          <CardContent className="space-y-4">
+            <form onSubmit={handlePreviewOlimpoImport} className="grid gap-4 md:grid-cols-[1.1fr_1fr_auto]">
+              <div className="space-y-2">
+                <label htmlFor="olimpoToken" className="text-sm font-medium">
+                  Token da etapa no Olimpo
+                </label>
+                <input
+                  id="olimpoToken"
+                  className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={olimpoToken}
+                  onChange={(e) => {
+                    setOlimpoToken(e.target.value);
+                    setOlimpoError("");
+                  }}
+                  placeholder="Ex: token recebido do Olimpo"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="olimpoCategory" className="text-sm font-medium">
+                  Categoria de destino
+                </label>
+                <select
+                  id="olimpoCategory"
+                  className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={olimpoCategoryId}
+                  onChange={(e) => {
+                    setOlimpoCategoryId(e.target.value);
+                    setOlimpoError("");
+                  }}
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <Button type="submit" disabled={previewOlimpoImportMutation.isPending}>
+                  {previewOlimpoImportMutation.isPending ? "Comparando..." : "Ver diferenças"}
+                </Button>
+              </div>
+            </form>
+
+            {olimpoError && <p className="text-sm text-destructive">{olimpoError}</p>}
+
+            {olimpoPreview && (
+              <div className="space-y-4 rounded-sm border bg-secondary/30 p-4">
+                <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                  <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+                    Importadas do Olimpo: {olimpoPreview.summary.importedCount}
+                  </span>
+                  <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+                    Criar: {olimpoPreview.summary.createCount}
+                  </span>
+                  <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+                    Atualizar: {olimpoPreview.summary.updateCount}
+                  </span>
+                  <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+                    Sem mudança: {olimpoPreview.summary.unchangedCount}
+                  </span>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  <p>Etapa do Olimpo: {olimpoPreview.sourceStepName || "Não identificada"}</p>
+                  <p>ID externo: {olimpoPreview.sourceStepId || "Não informado"}</p>
+                </div>
+
+                {olimpoPreview.actions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma diferença encontrada. A base local já está alinhada com o Olimpo.
+                  </p>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Ação</TableHead>
+                          <TableHead>Equipe do Olimpo</TableHead>
+                          <TableHead>Atual</TableHead>
+                          <TableHead>Próximo</TableHead>
+                          <TableHead>Campos alterados</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {olimpoPreview.actions.map((action) => (
+                          <TableRow key={`${action.action}-${action.externalId}`}>
+                            <TableCell className="font-medium">
+                              {action.action === "create" ? "Criar" : "Atualizar"}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{action.externalName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  ID externo: {action.externalId}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {action.current ? (
+                                <div>
+                                  <p>{action.current.name}</p>
+                                  <p>{action.current.institution}</p>
+                                  <p>
+                                    {action.current.city}/{action.current.state}
+                                  </p>
+                                </div>
+                              ) : (
+                                "Equipe nova"
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              <div>
+                                <p>{action.next.name}</p>
+                                <p>{action.next.institution}</p>
+                                <p>
+                                  {action.next.city}/{action.next.state}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {action.changedFields.join(", ")}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={handleApplyOlimpoImport}
+                        disabled={applyOlimpoImportMutation.isPending}
+                      >
+                        {applyOlimpoImportMutation.isPending
+                          ? "Aplicando importação..."
+                          : "Confirmar importação"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
-          </form>
-        </CardContent>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>Nova Categoria</CardTitle>
+              <CardDescription>
+                Crie uma categoria e os critérios padrão serão adicionados automaticamente.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateCategory((prev) => !prev)}
+            >
+              {showCreateCategory ? "Ocultar" : "Expandir"}
+            </Button>
+          </div>
+        </CardHeader>
+        {showCreateCategory && (
+          <CardContent>
+            <form onSubmit={handleCreateCategorySubmit} className="grid gap-3 md:grid-cols-3">
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Nome da categoria"
+                value={createCategoryForm.name}
+                onChange={(e) => handleCreateCategoryChange("name", e.target.value)}
+                required
+              />
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={createCategoryForm.type}
+                onChange={(e) =>
+                  handleCreateCategoryChange(
+                    "type",
+                    (e.target.value as "RESCUE" | "ARTISTIC") ?? "RESCUE",
+                  )
+                }
+              >
+                <option value="RESCUE">Resgate</option>
+                <option value="ARTISTIC">Artística</option>
+              </select>
+              <Button type="submit" disabled={createCategoryMutation.isPending}>
+                {createCategoryMutation.isPending ? "Criando..." : "Criar categoria"}
+              </Button>
+              {createCategoryError && (
+                <p className="text-sm text-destructive md:col-span-3">{createCategoryError}</p>
+              )}
+            </form>
+          </CardContent>
+        )}
       </Card>
 
       {categories.length === 0 ? (
