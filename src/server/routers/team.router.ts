@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import type { PrismaClient } from "@prisma/client";
 import { router, publicProcedure, adminProcedure, secretariatProcedure } from "@/server/trpc/trpc";
 
 const createTeamSchema = z.object({
@@ -18,6 +19,52 @@ const updateTeamSchema = z.object({
   state: z.string().length(2).optional(),
   attendanceConfirmed: z.boolean().optional(),
 });
+
+async function getCategoryEventId(prisma: PrismaClient, categoryId: string) {
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { eventId: true },
+  });
+
+  if (!category) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Category not found" });
+  }
+
+  return category.eventId;
+}
+
+async function assertCategoryBelongsToEvent(
+  prisma: PrismaClient,
+  categoryId: string,
+  eventId: string,
+) {
+  const categoryEventId = await getCategoryEventId(prisma, categoryId);
+
+  if (categoryEventId !== eventId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Category does not belong to your event",
+    });
+  }
+}
+
+async function assertTeamBelongsToEvent(prisma: PrismaClient, teamId: string, eventId: string) {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { category: { select: { eventId: true } } },
+  });
+
+  if (!team) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });
+  }
+
+  if (team.category.eventId !== eventId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Team does not belong to your event",
+    });
+  }
+}
 
 export const teamRouter = router({
   listByCategory: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
@@ -43,28 +90,19 @@ export const teamRouter = router({
   }),
 
   create: adminProcedure.input(createTeamSchema).mutation(async ({ ctx, input }) => {
-    const category = await ctx.prisma.category.findUnique({
-      where: { id: input.categoryId },
-      select: { eventId: true },
-    });
-
-    if (!category) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Category not found" });
-    }
-
-    if (category.eventId !== ctx.user.eventId) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Category does not belong to your event" });
-    }
+    await assertCategoryBelongsToEvent(ctx.prisma, input.categoryId, ctx.user.eventId);
 
     return ctx.prisma.team.create({ data: input });
   }),
 
   update: adminProcedure.input(updateTeamSchema).mutation(async ({ ctx, input }) => {
     const { id, ...data } = input;
+    await assertTeamBelongsToEvent(ctx.prisma, id, ctx.user.eventId);
     return ctx.prisma.team.update({ where: { id }, data });
   }),
 
   confirmAttendance: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    await assertTeamBelongsToEvent(ctx.prisma, input, ctx.user.eventId);
     return ctx.prisma.team.update({
       where: { id: input },
       data: { attendanceConfirmed: true },
@@ -72,6 +110,7 @@ export const teamRouter = router({
   }),
 
   revokeAttendance: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    await assertTeamBelongsToEvent(ctx.prisma, input, ctx.user.eventId);
     return ctx.prisma.team.update({
       where: { id: input },
       data: { attendanceConfirmed: false },
@@ -79,6 +118,7 @@ export const teamRouter = router({
   }),
 
   delete: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    await assertTeamBelongsToEvent(ctx.prisma, input, ctx.user.eventId);
     await ctx.prisma.team.delete({ where: { id: input } });
     return { success: true };
   }),
@@ -113,26 +153,26 @@ export const teamRouter = router({
   createForSecretariat: secretariatProcedure
     .input(createTeamSchema)
     .mutation(async ({ ctx, input }) => {
-      const category = await ctx.prisma.category.findUnique({
-        where: { id: input.categoryId },
-        select: { eventId: true },
-      });
-
-      if (!category) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Category not found" });
-      }
-
-      if (category.eventId !== ctx.user.eventId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Category does not belong to your event",
-        });
-      }
+      await assertCategoryBelongsToEvent(ctx.prisma, input.categoryId, ctx.user.eventId);
 
       return ctx.prisma.team.create({
         data: { ...input, attendanceConfirmed: true },
       });
     }),
+
+  updateForSecretariat: secretariatProcedure
+    .input(updateTeamSchema.omit({ attendanceConfirmed: true }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      await assertTeamBelongsToEvent(ctx.prisma, id, ctx.user.eventId);
+      return ctx.prisma.team.update({ where: { id }, data });
+    }),
+
+  deleteForSecretariat: secretariatProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    await assertTeamBelongsToEvent(ctx.prisma, input, ctx.user.eventId);
+    await ctx.prisma.team.delete({ where: { id: input } });
+    return { success: true };
+  }),
 
   /**
    * Toggle attendance status for a team.

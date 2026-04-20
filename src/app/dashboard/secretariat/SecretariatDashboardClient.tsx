@@ -17,14 +17,23 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [attendanceFilter, setAttendanceFilter] = useState<"all" | "confirmed" | "pending">("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormError, setAddFormError] = useState("");
+  const [editError, setEditError] = useState("");
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [addForm, setAddForm] = useState({
     name: "",
     institution: "",
     city: "",
     state: "",
     categoryId: "",
+  });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    institution: "",
+    city: "",
+    state: "",
   });
 
   const { data: event } = trpc.event.getById.useQuery(eventId);
@@ -38,6 +47,32 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
 
   const toggleAttendanceMutation = trpc.team.toggleAttendance.useMutation({
     onSuccess: () => refetchTeams(),
+  });
+
+  const updateTeamMutation = trpc.team.updateForSecretariat.useMutation({
+    onSuccess: () => {
+      refetchTeams();
+      setEditError("");
+      setEditingTeamId(null);
+      setEditForm({ name: "", institution: "", city: "", state: "" });
+    },
+    onError: (err) => {
+      setEditError(err.message || "Erro ao atualizar equipe.");
+    },
+  });
+
+  const deleteTeamMutation = trpc.team.deleteForSecretariat.useMutation({
+    onSuccess: () => {
+      refetchTeams();
+      setEditError("");
+      if (editingTeamId) {
+        setEditingTeamId(null);
+        setEditForm({ name: "", institution: "", city: "", state: "" });
+      }
+    },
+    onError: (err) => {
+      setEditError(err.message || "Erro ao remover equipe.");
+    },
   });
 
   const createTeamMutation = trpc.team.createForSecretariat.useMutation({
@@ -63,11 +98,17 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
       const matchesSearch =
         search.trim() === "" ||
         team.name.toLowerCase().includes(search.toLowerCase()) ||
-        team.institution.toLowerCase().includes(search.toLowerCase());
+        team.institution.toLowerCase().includes(search.toLowerCase()) ||
+        team.city.toLowerCase().includes(search.toLowerCase()) ||
+        team.state.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = categoryFilter === "all" || team.categoryId === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesAttendance =
+        attendanceFilter === "all" ||
+        (attendanceFilter === "confirmed" && team.attendanceConfirmed) ||
+        (attendanceFilter === "pending" && !team.attendanceConfirmed);
+      return matchesSearch && matchesCategory && matchesAttendance;
     });
-  }, [teams, search, categoryFilter]);
+  }, [teams, search, categoryFilter, attendanceFilter]);
 
   const teamsByCategory = useMemo(() => {
     const grouped: Record<string, typeof filteredTeams> = {};
@@ -82,6 +123,11 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
   function handleAddFormChange(field: keyof typeof addForm, value: string) {
     setAddForm((prev) => ({ ...prev, [field]: value }));
     setAddFormError("");
+  }
+
+  function handleEditFormChange(field: keyof typeof editForm, value: string) {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+    setEditError("");
   }
 
   function handleAddFormSubmit(e: React.FormEvent) {
@@ -101,6 +147,58 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
       state: addForm.state.toUpperCase(),
       categoryId: addForm.categoryId,
     });
+  }
+
+  function handleStartEdit(team: {
+    id: string;
+    name: string;
+    institution: string;
+    city: string;
+    state: string;
+  }) {
+    setEditingTeamId(team.id);
+    setEditError("");
+    setEditForm({
+      name: team.name,
+      institution: team.institution,
+      city: team.city,
+      state: team.state,
+    });
+  }
+
+  function handleCancelEdit() {
+    setEditingTeamId(null);
+    setEditError("");
+    setEditForm({ name: "", institution: "", city: "", state: "" });
+  }
+
+  function handleSaveEdit(teamId: string) {
+    if (!editForm.name.trim()) return setEditError("Nome da equipe é obrigatório.");
+    if (!editForm.institution.trim()) return setEditError("Instituição é obrigatória.");
+    if (!editForm.city.trim()) return setEditError("Cidade é obrigatória.");
+    if (editForm.state.trim().length !== 2) {
+      return setEditError("Estado deve ter 2 letras (ex: SP).");
+    }
+
+    updateTeamMutation.mutate({
+      id: teamId,
+      name: editForm.name.trim(),
+      institution: editForm.institution.trim(),
+      city: editForm.city.trim(),
+      state: editForm.state.trim().toUpperCase(),
+    });
+  }
+
+  function handleDeleteTeam(teamId: string, teamName: string) {
+    const shouldDelete = window.confirm(
+      `Deseja remover a equipe "${teamName}"? Esta ação também remove notas vinculadas.`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    deleteTeamMutation.mutate(teamId);
   }
 
   const totalTeams = teams?.length ?? 0;
@@ -170,6 +268,21 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
                     {cat.name}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="attendanceFilter">Filtrar por presença</Label>
+              <select
+                id="attendanceFilter"
+                value={attendanceFilter}
+                onChange={(e) =>
+                  setAttendanceFilter(e.target.value as "all" | "confirmed" | "pending")
+                }
+                className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="all">Todas</option>
+                <option value="confirmed">Presentes</option>
+                <option value="pending">Pendentes</option>
               </select>
             </div>
           </CardContent>
@@ -285,32 +398,123 @@ export default function SecretariatDashboardClient({ eventId }: SecretariatDashb
                 ) : (
                   <div className="space-y-2">
                     {catTeams.map((team) => (
-                      <button
+                      <div
                         key={team.id}
-                        type="button"
-                        onClick={() => toggleAttendanceMutation.mutate(team.id)}
-                        disabled={toggleAttendanceMutation.isPending}
-                        className={`w-full text-left rounded-lg border p-4 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        className={`rounded-lg border p-4 transition-colors ${
                           team.attendanceConfirmed
-                            ? "bg-green-50 border-green-300 hover:bg-green-100"
-                            : "bg-white border-gray-200 hover:bg-gray-50"
+                            ? "bg-green-50 border-green-300"
+                            : "bg-white border-gray-200"
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-900 truncate">{team.name}</p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {team.institution} — {team.city}/{team.state}
-                            </p>
+                        {editingTeamId === team.id ? (
+                          <div className="space-y-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label htmlFor={`edit-team-name-${team.id}`}>Nome</Label>
+                                <Input
+                                  id={`edit-team-name-${team.id}`}
+                                  value={editForm.name}
+                                  onChange={(e) => handleEditFormChange("name", e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label htmlFor={`edit-team-institution-${team.id}`}>Instituição</Label>
+                                <Input
+                                  id={`edit-team-institution-${team.id}`}
+                                  value={editForm.institution}
+                                  onChange={(e) =>
+                                    handleEditFormChange("institution", e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor={`edit-team-city-${team.id}`}>Cidade</Label>
+                                <Input
+                                  id={`edit-team-city-${team.id}`}
+                                  value={editForm.city}
+                                  onChange={(e) => handleEditFormChange("city", e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor={`edit-team-state-${team.id}`}>UF</Label>
+                                <Input
+                                  id={`edit-team-state-${team.id}`}
+                                  maxLength={2}
+                                  value={editForm.state}
+                                  onChange={(e) =>
+                                    handleEditFormChange("state", e.target.value.toUpperCase())
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {editError && (
+                              <p className="text-sm text-destructive">{editError}</p>
+                            )}
+
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                onClick={() => handleSaveEdit(team.id)}
+                                disabled={updateTeamMutation.isPending}
+                              >
+                                {updateTeamMutation.isPending ? "Salvando..." : "Salvar"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                                disabled={updateTeamMutation.isPending}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
                           </div>
-                          <span
-                            className="text-2xl flex-shrink-0"
-                            aria-label={team.attendanceConfirmed ? "Presente" : "Ausente"}
-                          >
-                            {team.attendanceConfirmed ? "✅" : "❌"}
-                          </span>
-                        </div>
-                      </button>
+                        ) : (
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 truncate">{team.name}</p>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {team.institution} — {team.city}/{team.state}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="text-2xl flex-shrink-0"
+                                aria-label={team.attendanceConfirmed ? "Presente" : "Ausente"}
+                              >
+                                {team.attendanceConfirmed ? "✅" : "❌"}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => toggleAttendanceMutation.mutate(team.id)}
+                                disabled={toggleAttendanceMutation.isPending}
+                              >
+                                {team.attendanceConfirmed ? "Cancelar check-in" : "Check-in"}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStartEdit(team)}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteTeam(team.id, team.name)}
+                                disabled={deleteTeamMutation.isPending}
+                              >
+                                Remover
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/presentation/components/ui/button";
 import {
@@ -23,13 +23,28 @@ interface CategoryListItem {
   type: string;
 }
 
+interface TeamListItem {
+  id: string;
+  name: string;
+  institution: string;
+  city: string;
+  state: string;
+  attendanceConfirmed: boolean;
+  categoryId: string;
+}
+
 interface AdminTeamsTabProps {
   eventId: string;
   categories: CategoryListItem[];
 }
 
+type AttendanceFilter = "all" | "confirmed" | "pending";
+
 export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
   const utils = trpc.useUtils();
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [attendanceFilter, setAttendanceFilter] = useState<AttendanceFilter>("all");
   const [createCategoryError, setCreateCategoryError] = useState("");
   const [createCategoryForm, setCreateCategoryForm] = useState<{
     name: string;
@@ -38,6 +53,8 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
     name: "",
     type: "RESCUE",
   });
+
+  const { data: teams } = trpc.team.listByEvent.useQuery(eventId);
 
   const createCategoryMutation = trpc.category.create.useMutation({
     onSuccess: async () => {
@@ -59,12 +76,64 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
       await Promise.all([
         utils.category.listByEvent.invalidate(eventId),
         utils.event.getById.invalidate(eventId),
+        utils.team.listByEvent.invalidate(eventId),
       ]);
     },
     onError: (err) => {
       setCreateCategoryError(err.message || "Erro ao apagar categoria.");
     },
   });
+
+  const filteredTeams = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return (teams ?? []).filter((team) => {
+      const matchesSearch =
+        normalizedSearch === "" ||
+        team.name.toLowerCase().includes(normalizedSearch) ||
+        team.institution.toLowerCase().includes(normalizedSearch) ||
+        team.city.toLowerCase().includes(normalizedSearch) ||
+        team.state.toLowerCase().includes(normalizedSearch);
+
+      const matchesCategory =
+        categoryFilter === "all" || team.categoryId === categoryFilter;
+
+      const matchesAttendance =
+        attendanceFilter === "all" ||
+        (attendanceFilter === "confirmed" && team.attendanceConfirmed) ||
+        (attendanceFilter === "pending" && !team.attendanceConfirmed);
+
+      return matchesSearch && matchesCategory && matchesAttendance;
+    });
+  }, [attendanceFilter, categoryFilter, search, teams]);
+
+  const groupedTeams = useMemo(() => {
+    const grouped = new Map<string, TeamListItem[]>();
+
+    for (const team of filteredTeams) {
+      const current = grouped.get(team.categoryId) ?? [];
+      current.push(team);
+      grouped.set(team.categoryId, current);
+    }
+
+    return grouped;
+  }, [filteredTeams]);
+
+  const visibleCategories = useMemo(() => {
+    return categories.filter((category) => {
+      if (categoryFilter !== "all" && category.id !== categoryFilter) {
+        return false;
+      }
+
+      if (!search.trim() && attendanceFilter === "all") {
+        return true;
+      }
+
+      return groupedTeams.has(category.id);
+    });
+  }, [attendanceFilter, categories, categoryFilter, groupedTeams, search]);
+
+  const confirmedCount = filteredTeams.filter((team) => team.attendanceConfirmed).length;
 
   function handleCreateCategoryChange(
     field: keyof typeof createCategoryForm,
@@ -93,7 +162,7 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
 
   function handleDeleteCategory(categoryId: string, categoryName: string) {
     const shouldDelete = window.confirm(
-      `Deseja apagar a categoria \"${categoryName}\"? Esta ação remove também equipes e notas vinculadas.`,
+      `Deseja apagar a categoria "${categoryName}"? Esta ação remove também equipes e notas vinculadas.`,
     );
 
     if (!shouldDelete) {
@@ -105,6 +174,78 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Operação de Equipes</CardTitle>
+          <CardDescription>
+            Busque equipes rapidamente e filtre por categoria ou situação de presença.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <label htmlFor="teamSearch" className="text-sm font-medium">
+                Buscar
+              </label>
+              <input
+                id="teamSearch"
+                className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Equipe, instituição, cidade ou UF"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="teamCategoryFilter" className="text-sm font-medium">
+                Categoria
+              </label>
+              <select
+                id="teamCategoryFilter"
+                className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">Todas as categorias</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="teamAttendanceFilter" className="text-sm font-medium">
+                Presença
+              </label>
+              <select
+                id="teamAttendanceFilter"
+                className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={attendanceFilter}
+                onChange={(e) => setAttendanceFilter(e.target.value as AttendanceFilter)}
+              >
+                <option value="all">Todas</option>
+                <option value="confirmed">Confirmadas</option>
+                <option value="pending">Pendentes</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+              Equipes visíveis: {filteredTeams.length}
+            </span>
+            <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+              Presenças confirmadas: {confirmedCount}
+            </span>
+            <span className="rounded-sm border bg-white px-2 py-1 shadow-sm">
+              Pendentes: {filteredTeams.length - confirmedCount}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Nova Categoria</CardTitle>
@@ -154,11 +295,23 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
         </Card>
       ) : null}
 
-      {categories.map((category) => (
+      {visibleCategories.length === 0 && categories.length > 0 ? (
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-center text-muted-foreground">
+              Nenhuma equipe encontrada com os filtros aplicados.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {visibleCategories.map((category) => (
         <CategoryTeamsSection
           key={category.id}
+          eventId={eventId}
           categoryId={category.id}
           categoryName={category.name}
+          teams={groupedTeams.get(category.id) ?? []}
           onDeleteCategory={handleDeleteCategory}
           isDeletingCategory={deleteCategoryMutation.isPending}
         />
@@ -168,20 +321,23 @@ export function AdminTeamsTab({ eventId, categories }: AdminTeamsTabProps) {
 }
 
 interface CategoryTeamsSectionProps {
+  eventId: string;
   categoryId: string;
   categoryName: string;
+  teams: TeamListItem[];
   onDeleteCategory: (categoryId: string, categoryName: string) => void;
   isDeletingCategory: boolean;
 }
 
 function CategoryTeamsSection({
+  eventId,
   categoryId,
   categoryName,
+  teams,
   onDeleteCategory,
   isDeletingCategory,
 }: CategoryTeamsSectionProps) {
   const utils = trpc.useUtils();
-  const { data: teams } = trpc.team.listByCategory.useQuery(categoryId);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showCreateTeamForm, setShowCreateTeamForm] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -200,12 +356,19 @@ function CategoryTeamsSection({
     state: "",
   });
 
+  const invalidateTeams = async () => {
+    await Promise.all([
+      utils.team.listByEvent.invalidate(eventId),
+      utils.team.listByCategory.invalidate(categoryId),
+    ]);
+  };
+
   const createMutation = trpc.team.create.useMutation({
     onSuccess: async () => {
       setShowCreateTeamForm(false);
       setCreateError("");
       setTeamForm({ name: "", institution: "", city: "", state: "" });
-      await utils.team.listByCategory.invalidate(categoryId);
+      await invalidateTeams();
     },
     onError: (err) => {
       setCreateError(err.message || "Erro ao cadastrar equipe.");
@@ -217,7 +380,7 @@ function CategoryTeamsSection({
       setEditError("");
       setEditingTeamId(null);
       setEditForm({ name: "", institution: "", city: "", state: "" });
-      await utils.team.listByCategory.invalidate(categoryId);
+      await invalidateTeams();
     },
     onError: (err) => {
       setEditError(err.message || "Erro ao atualizar equipe.");
@@ -225,14 +388,20 @@ function CategoryTeamsSection({
   });
 
   const confirmMutation = trpc.team.confirmAttendance.useMutation({
-    onSuccess: async () => {
-      await utils.team.listByCategory.invalidate(categoryId);
-    },
+    onSuccess: invalidateTeams,
   });
 
   const revokeMutation = trpc.team.revokeAttendance.useMutation({
+    onSuccess: invalidateTeams,
+  });
+
+  const deleteTeamMutation = trpc.team.delete.useMutation({
     onSuccess: async () => {
-      await utils.team.listByCategory.invalidate(categoryId);
+      setEditError("");
+      await invalidateTeams();
+    },
+    onError: (err) => {
+      setEditError(err.message || "Erro ao remover equipe.");
     },
   });
 
@@ -273,13 +442,7 @@ function CategoryTeamsSection({
     });
   }
 
-  function startEditTeam(team: {
-    id: string;
-    name: string;
-    institution: string;
-    city: string;
-    state: string;
-  }) {
+  function startEditTeam(team: TeamListItem) {
     setEditingTeamId(team.id);
     setEditError("");
     setEditForm({
@@ -326,10 +489,28 @@ function CategoryTeamsSection({
     });
   }
 
+  function handleDeleteTeam(teamId: string, teamName: string) {
+    const shouldDelete = window.confirm(
+      `Deseja remover a equipe "${teamName}"? Esta ação também remove notas já vinculadas.`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    deleteTeamMutation.mutate(teamId);
+  }
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">{categoryName}</h3>
+        <div>
+          <h3 className="text-lg font-semibold">{categoryName}</h3>
+          <p className="text-sm text-muted-foreground">
+            {teams.filter((team) => team.attendanceConfirmed).length}/{teams.length} equipes com
+            presença confirmada
+          </p>
+        </div>
         <div className="relative">
           <Button
             variant="ghost"
@@ -366,6 +547,7 @@ function CategoryTeamsSection({
           )}
         </div>
       </div>
+
       {showCreateTeamForm && (
         <Card className="mb-4">
           <CardContent className="pt-6">
@@ -379,7 +561,7 @@ function CategoryTeamsSection({
               />
               <input
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="Instituicao"
+                placeholder="Instituição"
                 value={teamForm.institution}
                 onChange={(e) => handleCreateTeamChange("institution", e.target.value)}
                 required
@@ -412,15 +594,16 @@ function CategoryTeamsSection({
           </CardContent>
         </Card>
       )}
+
       <Card>
         <CardContent className="p-0">
           <Table className="table-fixed">
             <colgroup>
-              <col className="w-[26%]" />
+              <col className="w-[24%]" />
               <col className="w-[20%]" />
-              <col className="w-[22%]" />
+              <col className="w-[20%]" />
               <col className="w-[14%]" />
-              <col className="w-[18%]" />
+              <col className="w-[22%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -432,10 +615,10 @@ function CategoryTeamsSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!teams || teams.length === 0 ? (
+              {teams.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    Nenhuma equipe cadastrada
+                    Nenhuma equipe encontrada nesta categoria com os filtros atuais.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -525,9 +708,20 @@ function CategoryTeamsSection({
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => startEditTeam(team)}>
-                          Editar
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => startEditTeam(team)}>
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteTeam(team.id, team.name)}
+                            disabled={deleteTeamMutation.isPending}
+                          >
+                            Remover
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
