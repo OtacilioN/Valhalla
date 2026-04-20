@@ -33,6 +33,11 @@ export type CreateCategoryInput = {
 
 export type UpdateCategoryInput = Partial<Omit<CreateCategoryInput, "eventId" | "type">>;
 
+export type CategoryPreset = {
+  columns: string[];
+  scoringFormula: string;
+};
+
 // ─── Default categories ───────────────────────────────────────────────────────
 
 export const DEFAULT_CATEGORIES: Array<{ name: string; type: CategoryType }> = [
@@ -91,3 +96,18 @@ export const ARTISTIC_SCORING_FORMULA = `(function(scores) {
   var sum_palco = scores[1] + scores[2];
   return [score, sum_palco, scores[3] * -1];
 })`;
+
+export const CATEGORY_PRESETS: Record<CategoryType, CategoryPreset> = {
+  RESCUE: {
+    columns: RESCUE_COLUMNS,
+    scoringFormula: RESCUE_SCORING_FORMULA,
+  },
+  ARTISTIC: {
+    columns: ARTISTIC_COLUMNS,
+    scoringFormula: ARTISTIC_SCORING_FORMULA,
+  },
+};
+
+export function getCategoryPreset(type: CategoryType): CategoryPreset {
+  return CATEGORY_PRESETS[type];
+}

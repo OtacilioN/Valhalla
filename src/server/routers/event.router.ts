@@ -4,10 +4,7 @@ import type { PrismaClient } from "@prisma/client";
 import { router, publicProcedure, adminProcedure } from "@/server/trpc/trpc";
 import {
   DEFAULT_CATEGORIES,
-  RESCUE_COLUMNS,
-  ARTISTIC_COLUMNS,
-  RESCUE_SCORING_FORMULA,
-  ARTISTIC_SCORING_FORMULA,
+  getCategoryPreset,
 } from "@/domain/entities/category";
 import { AuthService } from "@/application/services/auth.service";
 
@@ -69,22 +66,20 @@ async function createEventWithDefaults(
   });
 
   for (const [index, defaultCat] of DEFAULT_CATEGORIES.entries()) {
-    const isRescue = defaultCat.type === "RESCUE";
-    const columns = isRescue ? RESCUE_COLUMNS : ARTISTIC_COLUMNS;
-    const formula = isRescue ? RESCUE_SCORING_FORMULA : ARTISTIC_SCORING_FORMULA;
+    const preset = getCategoryPreset(defaultCat.type);
 
     const category = await prisma.category.create({
       data: {
         name: defaultCat.name,
         type: defaultCat.type,
         order: index,
-        scoringFormula: formula,
+        scoringFormula: preset.scoringFormula,
         eventId: event.id,
       },
     });
 
     await prisma.scoreColumn.createMany({
-      data: columns.map((col, colIndex) => ({
+      data: preset.columns.map((col, colIndex) => ({
         name: col,
         order: colIndex,
         categoryId: category.id,

@@ -12,12 +12,11 @@ import {
   CardTitle,
 } from "@/presentation/components/ui/card";
 import { Badge } from "@/presentation/components/ui/badge";
-import { AdminOverviewTab } from "./components/AdminOverviewTab";
-import { AdminCategoriesTab } from "./components/AdminCategoriesTab";
-import { AdminTeamsTab } from "./components/AdminTeamsTab";
-import { AdminScoringTab } from "./components/AdminScoringTab";
-import { AdminArenasTab } from "./components/AdminArenasTab";
 import { formatDate } from "@/lib/utils";
+import {
+  ADMIN_DASHBOARD_SECTIONS,
+  type AdminDashboardSectionId,
+} from "./adminDashboardSections";
 
 interface AdminDashboardClientProps {
   eventId: string;
@@ -25,9 +24,8 @@ interface AdminDashboardClientProps {
 
 export default function AdminDashboardClient({ eventId }: AdminDashboardClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "teams" | "categories" | "scoring" | "arenas"
-  >("overview");
+  const utils = trpc.useUtils();
+  const [activeTab, setActiveTab] = useState<AdminDashboardSectionId>("overview");
   const [showCreateEventForm, setShowCreateEventForm] = useState(false);
   const [createEventError, setCreateEventError] = useState("");
   const [createEventForm, setCreateEventForm] = useState({
@@ -42,6 +40,14 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
   const visibleCategories = categories ?? event?.categories ?? [];
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => router.push("/login"),
+  });
+  const updateEventMutation = trpc.event.update.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.event.getById.invalidate(eventId),
+        utils.category.listByEvent.invalidate(eventId),
+      ]);
+    },
   });
   const createEventMutation = trpc.event.create.useMutation({
     onSuccess: () => {
@@ -111,25 +117,56 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
     );
   }
 
+  const activeSection =
+    ADMIN_DASHBOARD_SECTIONS.find((section) => section.id === activeTab) ??
+    ADMIN_DASHBOARD_SECTIONS[0];
+
+  const sectionsContext = {
+    eventId,
+    categories: visibleCategories,
+    categoriesCount: visibleCategories.length,
+    refereesCount: event.referees.length,
+    arenasCount: event.arenas.length,
+    surpriseChallenge: event.surpriseChallenge,
+    onToggleSurpriseChallenge: () =>
+      updateEventMutation.mutate({
+        id: eventId,
+        surpriseChallenge: !event.surpriseChallenge,
+      }),
+    isUpdatingEvent: updateEventMutation.isPending,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b shadow-sm">
+    <div className="valhalla-shell">
+      <header className="valhalla-topbar">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-bold text-indigo-700">Valhalla</span>
-            <Badge variant="secondary">Admin</Badge>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-primary-foreground/70">
+                Painel OBR
+              </p>
+              <span className="text-2xl font-light tracking-[0.08em]">Valhalla</span>
+            </div>
+            <Badge variant="secondary" className="rounded-sm bg-white/18 text-white">
+              Admin
+            </Badge>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{event.name}</span>
+            <span className="text-sm text-primary-foreground/80">{event.name}</span>
             <Button
               variant="default"
               size="sm"
+              className="rounded-sm bg-white text-primary hover:bg-white/90"
               onClick={() => setShowCreateEventForm((prev) => !prev)}
             >
               Criar novo evento
             </Button>
-            <Button variant="outline" size="sm" onClick={() => logoutMutation.mutate()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-sm border-white/30 bg-transparent text-white hover:bg-white/12 hover:text-white"
+              onClick={() => logoutMutation.mutate()}
+            >
               Sair
             </Button>
           </div>
@@ -138,8 +175,8 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {showCreateEventForm && (
-          <Card className="mb-6">
-            <CardHeader>
+          <Card className="valhalla-panel mb-6 rounded-sm">
+            <CardHeader className="border-b bg-secondary/70">
               <CardTitle>Novo Evento</CardTitle>
               <CardDescription>
                 Crie um novo evento para disponibilizá-lo na tela de login.
@@ -153,7 +190,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   </label>
                   <input
                     id="newEventName"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="Ex: OBR Regional São Paulo 2027"
                     value={createEventForm.name}
                     onChange={(e) => handleCreateEventChange("name", e.target.value)}
@@ -168,7 +205,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   <input
                     id="newEventAdminPassword"
                     type="password"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="Mínimo 4 caracteres"
                     value={createEventForm.adminPassword}
                     onChange={(e) => handleCreateEventChange("adminPassword", e.target.value)}
@@ -183,7 +220,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   <input
                     id="newEventRefereePassword"
                     type="password"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="Mínimo 4 caracteres"
                     value={createEventForm.refereePassword}
                     onChange={(e) => handleCreateEventChange("refereePassword", e.target.value)}
@@ -198,7 +235,7 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
                   <input
                     id="newEventSecretariatPassword"
                     type="password"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="Mínimo 4 caracteres"
                     value={createEventForm.secretariatPassword}
                     onChange={(e) => handleCreateEventChange("secretariatPassword", e.target.value)}
@@ -232,65 +269,39 @@ export default function AdminDashboardClient({ eventId }: AdminDashboardClientPr
 
         {/* Event summary */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">{event.name}</h2>
+          <h2 className="text-2xl font-medium text-foreground">{event.name}</h2>
           {event.description && <p className="text-muted-foreground mt-1">{event.description}</p>}
-          <div className="flex gap-4 mt-2 text-sm text-gray-500">
-            {event.location && <span>📍 {event.location}</span>}
-            <span>📅 {formatDate(event.startDate)}</span>
-            {event.isActive && <Badge variant="default">Ativo</Badge>}
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            {event.location && (
+              <span className="rounded-sm border bg-white px-2 py-1 text-muted-foreground shadow-sm">
+                Local: {event.location}
+              </span>
+            )}
+            <span className="rounded-sm border bg-white px-2 py-1 text-muted-foreground shadow-sm">
+              Data: {formatDate(event.startDate)}
+            </span>
+            {event.isActive && (
+              <Badge variant="default" className="rounded-sm">
+                Ativo
+              </Badge>
+            )}
           </div>
         </div>
 
-        {/* Navigation tabs */}
-        <div className="flex gap-2 mb-6 border-b">
-          {(["overview", "teams", "categories", "scoring", "arenas"] as const).map((tab) => (
+        <div className="mb-6 flex flex-wrap gap-2 border-b border-border/80">
+          {ADMIN_DASHBOARD_SECTIONS.map((section) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              key={section.id}
+              onClick={() => setActiveTab(section.id)}
+              className="valhalla-tab"
+              data-active={activeTab === section.id}
             >
-              {tab === "overview"
-                ? "Visão Geral"
-                : tab === "teams"
-                  ? "Equipes"
-                  : tab === "categories"
-                    ? "Categorias"
-                    : tab === "arenas"
-                      ? "Arenas"
-                      : "Pontuação"}
+              {section.label}
             </button>
           ))}
         </div>
 
-        {activeTab === "overview" && (
-          <AdminOverviewTab
-            categoriesCount={visibleCategories.length}
-            refereesCount={event.referees.length}
-            arenasCount={event.arenas.length}
-            surpriseChallenge={event.surpriseChallenge}
-            onToggleSurpriseChallenge={() =>
-              updateEventMutation.mutate({
-                id: eventId,
-                surpriseChallenge: !event.surpriseChallenge,
-              })
-            }
-            isUpdating={updateEventMutation.isPending}
-          />
-        )}
-
-        {activeTab === "categories" && <AdminCategoriesTab categories={visibleCategories} />}
-
-        {activeTab === "teams" && (
-          <AdminTeamsTab eventId={eventId} categories={visibleCategories} />
-        )}
-
-        {activeTab === "scoring" && <AdminScoringTab categories={visibleCategories} />}
-
-        {activeTab === "arenas" && <AdminArenasTab eventId={eventId} />}
+        {activeSection?.render(sectionsContext)}
       </main>
     </div>
   );

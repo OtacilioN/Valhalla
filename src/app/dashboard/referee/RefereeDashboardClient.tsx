@@ -46,17 +46,28 @@ export default function RefereeDashboardClient({ eventId }: RefereeDashboardClie
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b shadow-sm">
+    <div className="valhalla-shell">
+      <header className="valhalla-topbar">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-bold text-indigo-700">Valhalla</span>
-            <Badge variant="outline">Árbitro</Badge>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-primary-foreground/70">
+                Operação de Arena
+              </p>
+              <span className="text-2xl font-light tracking-[0.08em]">Valhalla</span>
+            </div>
+            <Badge variant="secondary" className="rounded-sm bg-white/18 text-white">
+              Árbitro
+            </Badge>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{event.name}</span>
-            <Button variant="outline" size="sm" onClick={() => logoutMutation.mutate()}>
+            <span className="text-sm text-primary-foreground/80">{event.name}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-sm border-white/30 bg-transparent text-white hover:bg-white/12 hover:text-white"
+              onClick={() => logoutMutation.mutate()}
+            >
               Sair
             </Button>
           </div>
@@ -72,13 +83,16 @@ export default function RefereeDashboardClient({ eventId }: RefereeDashboardClie
               {event.categories.map((category) => (
                 <Card
                   key={category.id}
-                  className="cursor-pointer hover:border-indigo-400 transition-colors"
+                  className="valhalla-panel cursor-pointer rounded-sm transition-colors hover:border-primary"
                   onClick={() => setSelectedCategoryId(category.id)}
                 >
-                  <CardHeader>
+                  <CardHeader className="border-b bg-secondary/65">
                     <CardTitle>{category.name}</CardTitle>
                     <CardDescription>
-                      <Badge variant={category.type === "RESCUE" ? "default" : "secondary"}>
+                      <Badge
+                        variant={category.type === "RESCUE" ? "default" : "secondary"}
+                        className="rounded-sm"
+                      >
                         {category.type === "RESCUE" ? "Resgate" : "Artística"}
                       </Badge>
                     </CardDescription>
@@ -130,7 +144,7 @@ function TeamSelector({ categoryId, onBack, onSelectTeam }: TeamSelectorProps) {
       {isLoading && <p className="text-muted-foreground">Carregando equipes...</p>}
 
       {!isLoading && (!teams || teams.length === 0) && (
-        <Card>
+        <Card className="valhalla-panel rounded-sm">
           <CardContent className="py-8 text-center text-muted-foreground">
             Nenhuma equipe confirmada nesta categoria.
           </CardContent>
@@ -141,10 +155,10 @@ function TeamSelector({ categoryId, onBack, onSelectTeam }: TeamSelectorProps) {
         {teams?.map((team) => (
           <Card
             key={team.id}
-            className="cursor-pointer hover:border-indigo-400 transition-colors"
+            className="valhalla-panel cursor-pointer rounded-sm transition-colors hover:border-primary"
             onClick={() => onSelectTeam(team.id)}
           >
-            <CardHeader className="pb-2">
+            <CardHeader className="border-b bg-secondary/65 pb-2">
               <CardTitle className="text-base">{team.name}</CardTitle>
               <CardDescription>
                 {team.institution} — {team.city}/{team.state}
@@ -220,8 +234,8 @@ function ScoreSubmitter({ categoryId, teamId, arenas, onBack, onDone }: ScoreSub
         <h2 className="text-xl font-bold">Inserir Pontuação</h2>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="valhalla-panel rounded-sm">
+        <CardHeader className="border-b bg-secondary/65">
           <CardTitle>{team.name}</CardTitle>
           <CardDescription>
             {category.name} — {team.institution}
@@ -235,7 +249,7 @@ function ScoreSubmitter({ categoryId, teamId, arenas, onBack, onDone }: ScoreSub
                 <select
                   value={selectedArenaId}
                   onChange={(e) => setSelectedArenaId(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm"
                 >
                   {arenas.map((arena) => (
                     <option key={arena.id} value={arena.id}>

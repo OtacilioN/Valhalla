@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
+import { Roboto } from "next/font/google";
 import { TRPCProvider } from "@/presentation/components/shared/TRPCProvider";
 import "./globals.css";
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  variable: "--font-roboto",
+});
 
 export const metadata: Metadata = {
   title: "Valhalla — OBR Tournament Manager",
@@ -14,7 +21,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className="font-sans antialiased">
+      <body className={`${roboto.variable} antialiased`}>
         <TRPCProvider>{children}</TRPCProvider>
       </body>
     </html>
