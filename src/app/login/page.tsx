@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { formatDateRange } from "@/lib/utils";
 import { Button } from "@/presentation/components/ui/button";
 import {
   Card,
@@ -26,10 +27,19 @@ export default function LoginPage() {
   const { data: events, isLoading: loadingEvents } = trpc.event.list.useQuery();
 
   useEffect(() => {
+    if (events?.length && !eventId) {
+      const defaultEvent = events.find((event) => event.isActive) ?? events[0];
+      setEventId(defaultEvent.id);
+    }
+  }, [events, eventId]);
+
+  useEffect(() => {
     if (!loadingEvents && events && events.length === 0) {
       router.replace("/setup");
     }
   }, [loadingEvents, events, router]);
+
+  const selectedEvent = events?.find((event) => event.id === eventId);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: (data) => {
@@ -83,20 +93,42 @@ export default function LoginPage() {
                 ) : !events || events.length === 0 ? (
                   <p className="text-sm text-amber-600">Nenhum evento cadastrado.</p>
                 ) : (
-                  <select
-                    id="event"
-                    value={eventId}
-                    onChange={(e) => setEventId(e.target.value)}
-                    className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Selecione um evento...</option>
-                    {events.map((ev) => (
-                      <option key={ev.id} value={ev.id}>
-                        {ev.name}
-                      </option>
-                    ))}
-                  </select>
-                  )}
+                  <div className="space-y-3">
+                    <select
+                      id="event"
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                      className="flex h-9 w-full rounded-sm border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">Selecione um evento...</option>
+                      {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.isActive ? "[Ativo] " : ""}{ev.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    {selectedEvent && (
+                      <div className="rounded-sm border bg-secondary/40 px-3 py-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-foreground">{selectedEvent.name}</p>
+                          {selectedEvent.isActive && (
+                            <span className="rounded-sm bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                              Evento ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-muted-foreground">
+                          {formatDateRange(selectedEvent.startDate, selectedEvent.endDate)}
+                          {selectedEvent.location ? ` • ${selectedEvent.location}` : ""}
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                          {selectedEvent.description || "Sem descrição cadastrada."}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
