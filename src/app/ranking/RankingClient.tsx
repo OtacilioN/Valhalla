@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
+import { formatDateRange } from "@/lib/utils";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Card, CardContent } from "@/presentation/components/ui/card";
 import {
@@ -39,11 +40,20 @@ export default function RankingClient() {
             <p className="text-indigo-200 text-sm mt-1">Ranking em Tempo Real</p>
           </div>
           {activeEvent && (
-            <div className="text-right">
-              <p className="font-semibold">{activeEvent.name}</p>
-              {activeEvent.location && (
-                <p className="text-indigo-200 text-sm">📍 {activeEvent.location}</p>
-              )}
+            <div className="max-w-md text-right">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <p className="font-semibold">{activeEvent.name}</p>
+                <Badge variant="secondary" className="rounded-sm bg-white/15 text-white">
+                  Evento ativo
+                </Badge>
+              </div>
+              <p className="mt-1 text-sm text-indigo-200">
+                {formatDateRange(activeEvent.startDate, activeEvent.endDate)}
+                {activeEvent.location ? ` • ${activeEvent.location}` : ""}
+              </p>
+              <p className="mt-1 text-sm text-indigo-100/90">
+                {activeEvent.description || "Classificação pública da etapa atual da OBR."}
+              </p>
             </div>
           )}
         </div>

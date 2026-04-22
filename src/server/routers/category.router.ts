@@ -2,10 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, adminProcedure } from "@/server/trpc/trpc";
 import {
-  RESCUE_COLUMNS,
-  ARTISTIC_COLUMNS,
-  RESCUE_SCORING_FORMULA,
-  ARTISTIC_SCORING_FORMULA,
+  getCategoryPreset,
 } from "@/domain/entities/category";
 
 const createCategorySchema = z.object({
@@ -59,15 +56,13 @@ export const categoryRouter = router({
   }),
 
   create: adminProcedure.input(createCategorySchema).mutation(async ({ ctx, input }) => {
-    const isRescue = input.type === "RESCUE";
-    const columns = isRescue ? RESCUE_COLUMNS : ARTISTIC_COLUMNS;
-    const formula = isRescue ? RESCUE_SCORING_FORMULA : ARTISTIC_SCORING_FORMULA;
+    const preset = getCategoryPreset(input.type);
 
     const category = await ctx.prisma.category.create({
       data: {
         name: input.name,
         type: input.type,
-        scoringFormula: formula,
+        scoringFormula: preset.scoringFormula,
         order: 999,
         eventId: input.eventId,
       },
@@ -75,7 +70,7 @@ export const categoryRouter = router({
 
     if (input.applyPreset) {
       await ctx.prisma.scoreColumn.createMany({
-        data: columns.map((col, colIndex) => ({
+        data: preset.columns.map((col, colIndex) => ({
           name: col,
           order: colIndex,
           categoryId: category.id,

@@ -88,6 +88,88 @@ export const scoreRouter = router({
     return results;
   }),
 
+  getRescueProgress: refereeProcedure.input(z.string()).query(async ({ ctx, input: categoryId }) => {
+    const category = await ctx.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: {
+        scoreColumns: { orderBy: { order: "asc" } },
+      },
+    });
+
+    if (!category) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Category not found" });
+    }
+
+    const teams = await ctx.prisma.team.findMany({
+      where: { categoryId, attendanceConfirmed: true },
+      include: {
+        scores: {
+          where: { categoryId },
+          orderBy: { columnIndex: "asc" },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const rounds: Array<{
+      roundNumber: number;
+      scoreColumnIndex: number;
+      scoreColumnName: string;
+      timeColumnIndex: number | null;
+      timeColumnName: string | null;
+    }> = [];
+    for (let index = 0; index < category.scoreColumns.length; index += 2) {
+      const scoreColumn = category.scoreColumns[index];
+      if (!scoreColumn) {
+        continue;
+      }
+
+      rounds.push({
+        roundNumber: rounds.length + 1,
+        scoreColumnIndex: scoreColumn.order,
+        scoreColumnName: scoreColumn.name,
+        timeColumnIndex: category.scoreColumns[index + 1]?.order ?? null,
+        timeColumnName: category.scoreColumns[index + 1]?.name ?? null,
+      });
+    }
+
+    return {
+      category: {
+        id: category.id,
+        name: category.name,
+        type: category.type,
+      },
+      rounds,
+      teams: teams.map((team) => {
+        const scoreMap = new Map(team.scores.map((score) => [score.columnIndex, score]));
+
+        return {
+          id: team.id,
+          name: team.name,
+          institution: team.institution,
+          city: team.city,
+          state: team.state,
+          rounds: rounds.map((round) => {
+            const scoreValue = scoreMap.get(round.scoreColumnIndex)?.value ?? null;
+            const timeValue =
+              round.timeColumnIndex !== null
+                ? scoreMap.get(round.timeColumnIndex)?.value ?? null
+                : null;
+
+            return {
+              roundNumber: round.roundNumber,
+              scoreColumnIndex: round.scoreColumnIndex,
+              timeColumnIndex: round.timeColumnIndex,
+              scoreValue,
+              timeValue,
+              completed: scoreValue !== null || timeValue !== null,
+            };
+          }),
+        };
+      }),
+    };
+  }),
+
   getRanking: publicProcedure.input(z.string()).query(async ({ ctx, input: categoryId }) => {
     const category = await ctx.prisma.category.findUnique({
       where: { id: categoryId },

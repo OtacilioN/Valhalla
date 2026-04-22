@@ -2,10 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
   DEFAULT_CATEGORIES,
-  RESCUE_COLUMNS,
-  ARTISTIC_COLUMNS,
-  RESCUE_SCORING_FORMULA,
-  ARTISTIC_SCORING_FORMULA,
+  getCategoryPreset,
 } from "../src/domain/entities/category";
 
 const prisma = new PrismaClient();
@@ -47,22 +44,20 @@ async function main() {
 
   // Create default categories
   for (const [index, defaultCategory] of DEFAULT_CATEGORIES.entries()) {
-    const isRescue = defaultCategory.type === "RESCUE";
-    const columns = isRescue ? RESCUE_COLUMNS : ARTISTIC_COLUMNS;
-    const formula = isRescue ? RESCUE_SCORING_FORMULA : ARTISTIC_SCORING_FORMULA;
+    const preset = getCategoryPreset(defaultCategory.type);
 
     const category = await prisma.category.create({
       data: {
         name: defaultCategory.name,
         type: defaultCategory.type,
         order: index,
-        scoringFormula: formula,
+        scoringFormula: preset.scoringFormula,
         eventId: event.id,
       },
     });
 
     await prisma.scoreColumn.createMany({
-      data: columns.map((col, colIndex) => ({
+      data: preset.columns.map((col, colIndex) => ({
         name: col,
         order: colIndex,
         isReadOnly: false,

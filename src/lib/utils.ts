@@ -13,6 +13,17 @@ export function formatDate(date: Date | string): string {
   });
 }
 
+export function formatDateRange(
+  startDate: Date | string,
+  endDate?: Date | string | null,
+): string {
+  if (!endDate) {
+    return formatDate(startDate);
+  }
+
+  return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+
 export function formatDateTime(date: Date | string): string {
   return new Date(date).toLocaleString("pt-BR", {
     day: "2-digit",
